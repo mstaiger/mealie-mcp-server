@@ -15,12 +15,13 @@ load_dotenv()
 # Get log level from environment variable with INFO as default
 log_level_name = os.getenv("LOG_LEVEL", "INFO")
 log_level = getattr(logging, log_level_name.upper(), logging.INFO)
+log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mealie_mcp_server.log')
 
 # Configure logging
 logging.basicConfig(
     level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("mealie_mcp_server.log")],
+    handlers=[logging.StreamHandler(), logging.FileHandler(log_path)],
 )
 logger = logging.getLogger("mealie-mcp")
 

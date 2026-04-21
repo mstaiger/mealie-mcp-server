@@ -11,6 +11,36 @@ from models.recipe import Recipe, RecipeIngredient, RecipeInstruction
 logger = logging.getLogger("mealie-mcp")
 
 
+def _normalize_ingredient_for_write(ingredient: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip food/unit objects whose id is null — Mealie's write path rejects
+    them with a ValueError. Fold the stripped names into `note` so the
+    ingredient still renders readably.
+    """
+    result = dict(ingredient)
+    note_parts: List[str] = []
+
+    unit = result.get("unit")
+    if isinstance(unit, dict) and not unit.get("id"):
+        name = unit.get("name")
+        if name:
+            note_parts.append(str(name))
+        result["unit"] = None
+
+    food = result.get("food")
+    if isinstance(food, dict) and not food.get("id"):
+        name = food.get("name")
+        if name:
+            note_parts.append(str(name))
+        result["food"] = None
+
+    if note_parts:
+        existing = result.get("note") or ""
+        combined = " ".join(note_parts)
+        result["note"] = f"{combined} {existing}".strip() if existing else combined
+
+    return result
+
+
 def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
     """Register all recipe-related tools with the MCP server."""
 
@@ -245,6 +275,60 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
+    def update_recipe_ingredients(
+        slug: str,
+        ingredients: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Replace a recipe's structured ingredient list with parsed fields
+        (quantity, unit, food). Typical flow: call parse_ingredients on
+        free-text strings, then pass the returned dicts here. Fetches the
+        current recipe, swaps in the new ingredients, and PUTs — other
+        recipe fields are preserved.
+
+        Food/unit objects whose `id` is null are stripped before sending:
+        Mealie's write path rejects food/unit references without a resolved
+        UUID. The food/unit name is folded into the ingredient's `note` so
+        the ingredient still renders readably. To keep the structured
+        reference, create the Food/Unit via Mealie's admin endpoints first
+        and pass its UUID in `food.id` / `unit.id`.
+
+        Args:
+            slug: The unique text identifier for the recipe to update.
+            ingredients: List of ingredient dicts. Accepted shape matches
+                Mealie's RecipeIngredient: quantity (float|None),
+                unit ({id, name, ...}|None), food ({id, name, ...}|None),
+                note (str|None), title (str|None), originalText (str|None),
+                disableAmount (bool), isFood (bool).
+
+        Returns:
+            Dict[str, Any]: The updated recipe details.
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Updating recipe ingredients",
+                    "slug": slug,
+                    "count": len(ingredients),
+                }
+            )
+            validated = [
+                _normalize_ingredient_for_write(
+                    RecipeIngredient.model_validate(i).model_dump(
+                        exclude_none=True, by_alias=True
+                    )
+                )
+                for i in ingredients
+            ]
+            return mealie.update_recipe_ingredients(slug, validated)
+        except Exception as e:
+            error_msg = f"Error updating recipe ingredients '{slug}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
     def duplicate_recipe(slug: str, name: Optional[str] = None) -> Dict[str, Any]:
         """Duplicate an existing recipe, creating a copy with a new slug.
 
@@ -361,6 +445,50 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             error_msg = f"Error uploading recipe asset '{slug}': {str(e)}"
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def parse_ingredient(ingredient: str) -> Dict[str, Any]:
+        """Parse a single ingredient string into structured quantity/unit/food fields
+        using Mealie's NLP parser.
+
+        Args:
+            ingredient: The ingredient string to parse (e.g. "2 cups all-purpose flour").
+
+        Returns:
+            Dict[str, Any]: Parsed ingredient with quantity, unit, food, and other fields.
+        """
+        try:
+            logger.info({"message": "Parsing ingredient", "ingredient": ingredient})
+            return mealie.parse_ingredient(ingredient)
+        except Exception as e:
+            error_msg = f"Error parsing ingredient '{ingredient}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def parse_ingredients(ingredients: List[str]) -> List[Dict[str, Any]]:
+        """Parse multiple ingredient strings into structured quantity/unit/food fields
+        using Mealie's NLP parser. More efficient than calling parse_ingredient one at a time.
+
+        Args:
+            ingredients: List of ingredient strings to parse.
+
+        Returns:
+            List[Dict[str, Any]]: List of parsed ingredients with quantity, unit, food, and other fields.
+        """
+        try:
+            logger.info({"message": "Parsing ingredients", "count": len(ingredients)})
+            return mealie.parse_ingredients(ingredients)
+        except Exception as e:
+            error_msg = f"Error parsing ingredients: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
             raise ToolError(error_msg)
 
     @mcp.tool()

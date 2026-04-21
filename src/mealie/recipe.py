@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
 from utils import format_api_params
@@ -133,6 +134,41 @@ class RecipeMixin:
         logger.info({"message": "Patching recipe", "slug": slug})
         return self._handle_request("PATCH", f"/api/recipes/{slug}", json=recipe_data)
 
+    def update_recipe_ingredients(
+        self, slug: str, ingredients: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Replace the structured recipeIngredient array on an existing recipe.
+
+        Fetches the current recipe, swaps in the new ingredient list, and PUTs
+        the full recipe back. Mealie's PATCH endpoint rejects partial bodies
+        containing recipeIngredient with a masked 500 ValidationError, so we
+        use PUT to stay on the validated path.
+
+        Args:
+            slug: The slug identifier of the recipe to update.
+            ingredients: List of ingredient dicts matching Mealie's
+                RecipeIngredient shape (quantity, unit, food, note, title,
+                originalText, ...).
+
+        Returns:
+            JSON response containing the updated recipe details.
+        """
+        if not slug:
+            raise ValueError("Recipe slug cannot be empty")
+        if ingredients is None:
+            raise ValueError("Ingredients list cannot be None")
+
+        logger.info(
+            {
+                "message": "Updating recipe ingredients",
+                "slug": slug,
+                "count": len(ingredients),
+            }
+        )
+        current = self._handle_request("GET", f"/api/recipes/{slug}")
+        current["recipeIngredient"] = ingredients
+        return self._handle_request("PUT", f"/api/recipes/{slug}", json=current)
+
     def duplicate_recipe(self, slug: str, name: Optional[str] = None) -> Dict[str, Any]:
         """Duplicate an existing recipe
 
@@ -214,10 +250,27 @@ class RecipeMixin:
         if not filename:
             raise ValueError("Filename cannot be empty")
 
-        files = {"image": (filename, image_data)}
+        # Mealie's PUT /recipes/{slug}/image requires both the file and a separate
+        # form field naming the file extension (e.g. "png", "jpg").
+        _, ext = os.path.splitext(filename)
+        extension = ext.lstrip(".").lower()
+        if not extension:
+            raise ValueError(f"Cannot determine image extension from filename: {filename!r}")
 
-        logger.info({"message": "Uploading recipe image", "slug": slug, "filename": filename})
-        return self._handle_request("PUT", f"/api/recipes/{slug}/image", files=files)
+        files = {"image": (filename, image_data)}
+        data = {"extension": extension}
+
+        logger.info(
+            {
+                "message": "Uploading recipe image",
+                "slug": slug,
+                "filename": filename,
+                "extension": extension,
+            }
+        )
+        return self._handle_request(
+            "PUT", f"/api/recipes/{slug}/image", files=files, data=data
+        )
 
     def upload_recipe_asset(self, slug: str, asset_data: bytes, filename: str) -> Dict[str, Any]:
         """Upload a recipe asset file (multipart upload)
@@ -256,3 +309,39 @@ class RecipeMixin:
 
         logger.info({"message": "Deleting recipe", "slug": slug})
         return self._handle_request("DELETE", f"/api/recipes/{slug}")
+
+    def parse_ingredient(self, ingredient: str) -> Dict[str, Any]:
+        """Parse a single ingredient string into structured quantity/unit/food fields.
+
+        Args:
+            ingredient: The ingredient string to parse (e.g. "2 cups all-purpose flour")
+
+        Returns:
+            JSON response with parsed ingredient fields (quantity, unit, food, etc.)
+        """
+        if not ingredient:
+            raise ValueError("Ingredient string cannot be empty")
+
+        logger.info({"message": "Parsing ingredient", "ingredient": ingredient})
+        return self._handle_request(
+            "POST", "/api/parser/ingredient", json={"ingredient": ingredient}
+        )
+
+    def parse_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
+        """Parse multiple ingredient strings into structured quantity/unit/food fields.
+
+        Args:
+            ingredients: List of ingredient strings to parse
+
+        Returns:
+            JSON response with list of parsed ingredient objects
+        """
+        if not ingredients:
+            raise ValueError("Ingredients list cannot be empty")
+
+        logger.info({"message": "Parsing ingredients", "count": len(ingredients)})
+        return self._handle_request(
+            "POST",
+            "/api/parser/ingredients",
+            json={"ingredients": ingredients},
+        )
