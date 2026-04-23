@@ -145,3 +145,56 @@ def register_household_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def get_household_invitations() -> List[Dict[str, Any]]:
+        """List outstanding invite tokens for the current household."""
+        try:
+            logger.info({"message": "Fetching household invitations"})
+            return mealie.get_household_invitations()
+        except Exception as e:
+            error_msg = f"Error fetching household invitations: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def create_household_invitation(
+        uses: int = 1,
+        group_id: Optional[str] = None,
+        household_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create an invitation token.
+
+        Args:
+            uses: Number of times the token can be redeemed (default 1)
+            group_id: Optional override for target group (defaults to current)
+            household_id: Optional override for target household (defaults to current)
+        """
+        try:
+            logger.info({"message": "Creating household invitation", "uses": uses})
+            return mealie.create_household_invitation(
+                uses=uses, group_id=group_id, household_id=household_id
+            )
+        except Exception as e:
+            error_msg = f"Error creating household invitation: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def send_household_invitation_email(email: str, token: str) -> Dict[str, Any]:
+        """Email an existing invite token to a recipient.
+
+        Args:
+            email: Destination email address
+            token: Invite token string from create_household_invitation
+        """
+        try:
+            logger.info({"message": "Emailing household invitation", "email": email})
+            return mealie.send_household_invitation_email(email=email, token=token)
+        except Exception as e:
+            error_msg = f"Error emailing household invitation: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)

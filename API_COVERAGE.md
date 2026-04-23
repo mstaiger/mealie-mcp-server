@@ -18,9 +18,11 @@ This document compares the MCP server implementation against the official Mealie
 | Meal Plan Rules | 5 | 5 | 100% ✅ |
 | Cookbooks | 6 | 6 | 100% ✅ |
 | User Self-Service | 7 | 7 | 100% ✅ |
+| Account Management | 6 | 6 | 100% ✅ |
 | Household Context | 7 | 7 | 100% ✅ |
+| Household Invitations | 3 | 3 | 100% ✅ |
 | Group Context | 10 | 10 | 100% ✅ |
-| **Total Priority APIs** | **124** | **124** | **100% ✅** |
+| **Total Priority APIs** | **133** | **133** | **100% ✅** |
 
 ## Detailed Coverage
 
@@ -186,6 +188,21 @@ Rules constrain random-meal selection by day + entry_type + recipe filter.
 - ✅ `PUT /api/households/permissions` - Set member permissions
 - ✅ `GET /api/households/statistics` - Household counts
 
+### ✅ Household Invitations (3/3 implemented - 100%)
+
+- ✅ `GET /api/households/invitations` - List outstanding invite tokens
+- ✅ `POST /api/households/invitations` - Create invite token
+- ✅ `POST /api/households/invitations/email` - Email an existing token
+
+### ✅ Account Management (6/6 implemented - 100%)
+
+- ✅ `PUT /api/users/password` - Change password
+- ✅ `POST /api/users/forgot-password` - Trigger reset email
+- ✅ `POST /api/users/reset-password` - Complete reset with token
+- ✅ `POST /api/users/api-tokens` - Create API token
+- ✅ `DELETE /api/users/api-tokens/{id}` - Revoke API token
+- ✅ `POST /api/users/{id}/image` - Upload profile image
+
 ### ✅ Group Context (10/10 implemented - 100%)
 
 - ✅ `GET /api/groups/self` - Current group
@@ -215,11 +232,9 @@ The following API areas are available but not yet implemented:
 - Webhooks (`/api/households/webhooks/*`)
 - Event notifications (`/api/households/event-notifications/*`)
 - Recipe actions (`/api/households/recipe-actions/*`)
-- Household invitations (`/api/households/invitations/*`) — Tier 4
 
 ### Admin & User Management
 - User administration (`/api/admin/users/*`)
-- User account management — password reset, API tokens, profile image upload (Tier 4)
 - Authentication endpoints
 
 ### Other Features
@@ -236,9 +251,8 @@ operations, or features that don't map naturally to an AI-chat interface.
 
 - ✅ **Implemented**: Recipe CRUD + imports + bulk actions, shopping lists,
   categories, tags, tools, labels, foods, units, meal plans, meal plan rules,
-  cookbooks, user favorites/ratings, household + group context.
-- ⏳ **Deferred to Tier 4**: User account management (password reset,
-  API tokens, profile image), household invitations.
+  cookbooks, user favorites/ratings, account management (password reset,
+  API tokens, profile image), household + group context, household invitations.
 - ❌ **Out of scope**: Admin endpoints (`/api/admin/*`), auth
   (`/api/auth/*`), webhooks / event notifications / recipe actions,
   recipe comments / timeline / sharing / exports, `/api/explore/*`,
@@ -252,8 +266,8 @@ According to the OpenAPI specification (`openapi.json`):
 - **Total Tags:** 55
 
 **MCP Server Coverage:**
-- **Tools Registered:** 125
-- **Priority APIs Covered:** 124/124 (100%)
+- **Tools Registered:** 134
+- **Priority APIs Covered:** 133/133 (100%)
 - **Tags Covered:** 8 major categories
 
 ## Notes

@@ -128,3 +128,115 @@ class UserMixin:
         return self._handle_request(
             "POST", f"/api/users/{user_id}/ratings/{recipe_slug}", json=payload
         )
+
+    def change_password(
+        self, new_password: str, current_password: str = ""
+    ) -> Dict[str, Any]:
+        """Change the current user's password.
+
+        Args:
+            new_password: New password (minimum 8 characters per Mealie schema)
+            current_password: Current password; required when the user has one
+                set. Safe to leave empty for OAuth-only accounts.
+        """
+        if not new_password or len(new_password) < 8:
+            raise ValueError("new_password must be at least 8 characters")
+
+        payload = {
+            "currentPassword": current_password,
+            "newPassword": new_password,
+        }
+        logger.info({"message": "Changing password"})
+        return self._handle_request("PUT", "/api/users/password", json=payload)
+
+    def forgot_password(self, email: str) -> Dict[str, Any]:
+        """Trigger a password-reset email for the given address."""
+        if not email:
+            raise ValueError("email cannot be empty")
+
+        logger.info({"message": "Initiating password reset", "email": email})
+        return self._handle_request(
+            "POST", "/api/users/forgot-password", json={"email": email}
+        )
+
+    def reset_password(
+        self, token: str, email: str, password: str, password_confirm: str
+    ) -> Dict[str, Any]:
+        """Complete a password reset using the token from the reset email."""
+        if not token:
+            raise ValueError("token cannot be empty")
+        if not email:
+            raise ValueError("email cannot be empty")
+        if not password:
+            raise ValueError("password cannot be empty")
+        if password != password_confirm:
+            raise ValueError("password and password_confirm must match")
+
+        payload = {
+            "token": token,
+            "email": email,
+            "password": password,
+            "passwordConfirm": password_confirm,
+        }
+        logger.info({"message": "Completing password reset", "email": email})
+        return self._handle_request("POST", "/api/users/reset-password", json=payload)
+
+    def create_api_token(
+        self, name: str, integration_id: str = "generic"
+    ) -> Dict[str, Any]:
+        """Create a long-lived API token.
+
+        Returns:
+            Response contains id, name, createdAt, and the one-time ``token``
+            value. Mealie does not support reading the token again later —
+            save the return value immediately.
+        """
+        if not name:
+            raise ValueError("name cannot be empty")
+
+        payload = {"name": name, "integrationId": integration_id}
+        logger.info({"message": "Creating API token", "name": name})
+        return self._handle_request("POST", "/api/users/api-tokens", json=payload)
+
+    def delete_api_token(self, token_id: int) -> Dict[str, Any]:
+        """Revoke a long-lived API token by integer ID."""
+        if token_id is None:
+            raise ValueError("token_id cannot be empty")
+
+        logger.info({"message": "Deleting API token", "token_id": token_id})
+        return self._handle_request(
+            "DELETE", f"/api/users/api-tokens/{token_id}"
+        )
+
+    def upload_profile_image(
+        self,
+        image_data: bytes,
+        filename: str,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Upload a profile image for the given user.
+
+        Args:
+            image_data: Binary image bytes
+            filename: Original filename (used to set multipart field)
+            user_id: Target user's UUID; defaults to current user
+        """
+        if not image_data:
+            raise ValueError("image_data cannot be empty")
+        if not filename:
+            raise ValueError("filename cannot be empty")
+
+        if user_id is None:
+            user_id = self.get_current_user()["id"]
+
+        files = {"profile": (filename, image_data)}
+        logger.info(
+            {
+                "message": "Uploading profile image",
+                "user_id": user_id,
+                "filename": filename,
+            }
+        )
+        return self._handle_request(
+            "POST", f"/api/users/{user_id}/image", files=files
+        )

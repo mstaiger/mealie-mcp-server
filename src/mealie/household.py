@@ -107,3 +107,55 @@ class HouseholdMixin:
         """Get counts of recipes, users, cookbooks, etc. for the household."""
         logger.info({"message": "Retrieving household statistics"})
         return self._handle_request("GET", "/api/households/statistics")
+
+    def get_household_invitations(self) -> List[Dict[str, Any]]:
+        """List outstanding invite tokens for the current household."""
+        logger.info({"message": "Retrieving household invitations"})
+        return self._handle_request("GET", "/api/households/invitations")
+
+    def create_household_invitation(
+        self,
+        uses: int = 1,
+        group_id: Optional[str] = None,
+        household_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create an invitation token.
+
+        Args:
+            uses: Number of times the token can be redeemed (default 1)
+            group_id: Optional override for target group; omitted → current group
+            household_id: Optional override for target household
+        """
+        if uses is None or uses < 1:
+            raise ValueError("uses must be a positive integer")
+
+        payload: Dict[str, Any] = {"uses": uses}
+        if group_id is not None:
+            payload["groupId"] = group_id
+        if household_id is not None:
+            payload["householdId"] = household_id
+
+        logger.info({"message": "Creating household invitation", "uses": uses})
+        return self._handle_request(
+            "POST", "/api/households/invitations", json=payload
+        )
+
+    def send_household_invitation_email(
+        self, email: str, token: str
+    ) -> Dict[str, Any]:
+        """Email an existing invite token to a recipient.
+
+        Args:
+            email: Destination email address
+            token: Invite token string (from create_household_invitation)
+        """
+        if not email:
+            raise ValueError("email cannot be empty")
+        if not token:
+            raise ValueError("token cannot be empty")
+
+        payload = {"email": email, "token": token}
+        logger.info({"message": "Emailing household invitation", "email": email})
+        return self._handle_request(
+            "POST", "/api/households/invitations/email", json=payload
+        )
