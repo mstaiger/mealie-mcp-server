@@ -492,6 +492,164 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
+    def parse_recipe_ingredients(
+        slug: str,
+        skip_parsed: bool = True,
+    ) -> Dict[str, Any]:
+        """Parse a recipe's ingredient text into structured quantity/unit/food
+        fields using Mealie's NLP parser and update the recipe in place.
+
+        Fetches the recipe, extracts the best available text for each
+        ingredient (originalText > display > note > reconstructed), runs
+        them through the parser in a single batch, and writes the
+        structured results back via PUT. Section headers (ingredients
+        with only a title) are preserved as-is.
+
+        Args:
+            slug: The unique text identifier for the recipe.
+            skip_parsed: If True (default), skip ingredients that already
+                have a resolved food.id. Set False to re-parse every
+                ingredient (useful when the parser has learned new
+                foods/units since the last run).
+
+        Returns:
+            Dict[str, Any]: Summary with slug, parsed_count, skipped_count,
+                total_count, and the updated recipe (or a message when
+                nothing needed parsing).
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Parsing recipe ingredients",
+                    "slug": slug,
+                    "skip_parsed": skip_parsed,
+                }
+            )
+
+            recipe = mealie.get_recipe(slug)
+            ingredients = list(recipe.get("recipeIngredient") or [])
+            total_count = len(ingredients)
+
+            if total_count == 0:
+                return {
+                    "slug": slug,
+                    "parsed_count": 0,
+                    "skipped_count": 0,
+                    "total_count": 0,
+                    "message": "Recipe has no ingredients to parse",
+                }
+
+            texts_to_parse: List[str] = []
+            parse_indices: List[int] = []
+
+            for idx, ing in enumerate(ingredients):
+                food = ing.get("food") if isinstance(ing.get("food"), dict) else None
+                unit = ing.get("unit") if isinstance(ing.get("unit"), dict) else None
+
+                # Section header: only has a title, nothing parseable
+                is_section_header = (
+                    ing.get("title")
+                    and not ing.get("originalText")
+                    and not ing.get("note")
+                    and not food
+                )
+                if is_section_header:
+                    continue
+
+                if skip_parsed and food and food.get("id"):
+                    continue
+
+                text = ing.get("originalText") or ing.get("display") or ing.get("note")
+                if not text:
+                    parts: List[str] = []
+                    if ing.get("quantity") is not None:
+                        parts.append(str(ing["quantity"]))
+                    if unit and unit.get("name"):
+                        parts.append(unit["name"])
+                    if food and food.get("name"):
+                        parts.append(food["name"])
+                    if ing.get("note"):
+                        parts.append(ing["note"])
+                    text = " ".join(parts) if parts else None
+
+                if not text or not text.strip():
+                    continue
+
+                texts_to_parse.append(text.strip())
+                parse_indices.append(idx)
+
+            if not texts_to_parse:
+                return {
+                    "slug": slug,
+                    "parsed_count": 0,
+                    "skipped_count": total_count,
+                    "total_count": total_count,
+                    "message": "No unparsed ingredients found",
+                }
+
+            parsed_results = mealie.parse_ingredients(texts_to_parse)
+
+            if len(parsed_results) != len(texts_to_parse):
+                logger.warning(
+                    {
+                        "message": "Parser result count mismatch",
+                        "expected": len(texts_to_parse),
+                        "got": len(parsed_results),
+                    }
+                )
+
+            parsed_count = 0
+            for i, parsed in enumerate(parsed_results):
+                if i >= len(parse_indices):
+                    break
+                # Mealie's parser wraps each result as {confidence, ingredient, input}
+                if isinstance(parsed, dict) and "ingredient" in parsed:
+                    merged = dict(parsed["ingredient"])
+                elif isinstance(parsed, dict):
+                    merged = dict(parsed)
+                else:
+                    continue
+
+                target_idx = parse_indices[i]
+                original = ingredients[target_idx]
+
+                for key in ("title", "referenceId", "isFood", "disableAmount"):
+                    if original.get(key) is not None:
+                        merged[key] = original[key]
+
+                if not merged.get("originalText"):
+                    merged["originalText"] = texts_to_parse[i]
+
+                ingredients[target_idx] = merged
+                parsed_count += 1
+
+            validated = [
+                _normalize_ingredient_for_write(
+                    RecipeIngredient.model_validate(ing).model_dump(
+                        exclude_none=True, by_alias=True
+                    )
+                )
+                for ing in ingredients
+            ]
+
+            updated_recipe = mealie.update_recipe_ingredients(slug, validated)
+
+            return {
+                "slug": slug,
+                "parsed_count": parsed_count,
+                "skipped_count": total_count - parsed_count,
+                "total_count": total_count,
+                "recipe": updated_recipe,
+            }
+        except Exception as e:
+            error_msg = f"Error parsing recipe ingredients '{slug}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ToolError(error_msg)
+
+    @mcp.tool()
     def delete_recipe(slug: str) -> Dict[str, Any]:
         """Delete a recipe permanently.
 
