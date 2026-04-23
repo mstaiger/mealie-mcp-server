@@ -194,3 +194,116 @@ class MealplanMixin:
         return self._handle_request(
             "POST", "/api/households/mealplans/random", json=payload
         )
+
+    def get_mealplan_rules(
+        self,
+        page: Optional[int] = None,
+        per_page: Optional[int] = None,
+        order_by: Optional[str] = None,
+        order_direction: Optional[str] = None,
+        query_filter: Optional[str] = None,
+        pagination_seed: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List mealplan rules for the current household.
+
+        Rules constrain ``create_random_mealplan`` by matching day + entry_type
+        against a ``queryFilterString`` (Mealie recipe query DSL).
+        """
+        param_dict = {
+            "page": page,
+            "perPage": per_page,
+            "orderBy": order_by,
+            "orderDirection": order_direction,
+            "queryFilter": query_filter,
+            "paginationSeed": pagination_seed,
+        }
+        params = format_api_params(param_dict)
+
+        logger.info({"message": "Retrieving mealplan rules", "parameters": params})
+        return self._handle_request(
+            "GET", "/api/households/mealplans/rules", params=params
+        )
+
+    def create_mealplan_rule(
+        self,
+        day: str = "unset",
+        entry_type: str = "unset",
+        query_filter_string: str = "",
+    ) -> Dict[str, Any]:
+        """Create a mealplan rule.
+
+        Args:
+            day: One of monday..sunday or ``unset`` (matches any day)
+            entry_type: breakfast | lunch | dinner | side | unset
+            query_filter_string: Recipe filter expression (Mealie DSL)
+        """
+        payload = {
+            "day": day,
+            "entryType": entry_type,
+            "queryFilterString": query_filter_string,
+        }
+        logger.info(
+            {"message": "Creating mealplan rule", "day": day, "entry_type": entry_type}
+        )
+        return self._handle_request(
+            "POST", "/api/households/mealplans/rules", json=payload
+        )
+
+    def get_mealplan_rule(self, rule_id: str) -> Dict[str, Any]:
+        """Get a mealplan rule by UUID."""
+        if not rule_id:
+            raise ValueError("rule_id cannot be empty")
+
+        logger.info({"message": "Retrieving mealplan rule", "rule_id": rule_id})
+        return self._handle_request("GET", f"/api/households/mealplans/rules/{rule_id}")
+
+    def update_mealplan_rule(
+        self,
+        rule_id: str,
+        day: Optional[str] = None,
+        entry_type: Optional[str] = None,
+        query_filter_string: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a mealplan rule. Only provided fields are changed.
+
+        PlanRulesOut requires id + groupId + householdId; fetch-merge-update.
+        """
+        if not rule_id:
+            raise ValueError("rule_id cannot be empty")
+
+        updates: Dict[str, Any] = {}
+        if day is not None:
+            updates["day"] = day
+        if entry_type is not None:
+            updates["entryType"] = entry_type
+        if query_filter_string is not None:
+            updates["queryFilterString"] = query_filter_string
+
+        if not updates:
+            raise ValueError("At least one field must be provided to update")
+
+        existing = self.get_mealplan_rule(rule_id)
+        payload = {
+            "id": existing["id"],
+            "groupId": existing["groupId"],
+            "householdId": existing["householdId"],
+            "day": existing.get("day", "unset"),
+            "entryType": existing.get("entryType", "unset"),
+            "queryFilterString": existing.get("queryFilterString", ""),
+        }
+        payload.update(updates)
+
+        logger.info({"message": "Updating mealplan rule", "rule_id": rule_id})
+        return self._handle_request(
+            "PUT", f"/api/households/mealplans/rules/{rule_id}", json=payload
+        )
+
+    def delete_mealplan_rule(self, rule_id: str) -> Dict[str, Any]:
+        """Delete a mealplan rule by UUID."""
+        if not rule_id:
+            raise ValueError("rule_id cannot be empty")
+
+        logger.info({"message": "Deleting mealplan rule", "rule_id": rule_id})
+        return self._handle_request(
+            "DELETE", f"/api/households/mealplans/rules/{rule_id}"
+        )

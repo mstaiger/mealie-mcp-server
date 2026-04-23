@@ -1,6 +1,8 @@
 from .categories_tools import register_categories_tools
 from .cookbooks_tools import register_cookbooks_tools
 from .foods_tools import register_foods_tools
+from .group_tools import register_group_tools
+from .household_tools import register_household_tools
 from .labels_tools import register_labels_tools
 from .mealplan_tools import register_mealplan_tools
 from .recipe_tools import register_recipe_tools
@@ -8,6 +10,7 @@ from .shopping_list_tools import register_shopping_list_tools
 from .tags_tools import register_tags_tools
 from .tools_organizer_tools import register_tools_organizer_tools
 from .units_tools import register_units_tools
+from .user_tools import register_user_tools
 
 
 def register_all_tools(mcp, mealie):
@@ -22,6 +25,9 @@ def register_all_tools(mcp, mealie):
     register_shopping_list_tools(mcp, mealie)
     register_mealplan_tools(mcp, mealie)
     register_cookbooks_tools(mcp, mealie)
+    register_household_tools(mcp, mealie)
+    register_group_tools(mcp, mealie)
+    register_user_tools(mcp, mealie)
 
 
 __all__ = [
@@ -36,4 +42,7 @@ __all__ = [
     "register_shopping_list_tools",
     "register_mealplan_tools",
     "register_cookbooks_tools",
+    "register_household_tools",
+    "register_group_tools",
+    "register_user_tools",
 ]

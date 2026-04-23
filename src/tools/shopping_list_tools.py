@@ -373,3 +373,58 @@ def register_shopping_list_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def update_shopping_list_label_settings(
+        list_id: str,
+        settings: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Configure which labels appear (and in what order) on a shopping list.
+
+        Mealie has no GET for this endpoint. To read current settings, call
+        get_shopping_list and inspect the ``labelSettings`` field.
+
+        Args:
+            list_id: UUID of the shopping list
+            settings: Array of ShoppingListMultiPurposeLabelUpdate dicts.
+                Each requires: id, shoppingListId, labelId. Optional: position.
+        """
+        try:
+            logger.info(
+                {"message": "Updating label settings", "list_id": list_id, "count": len(settings)}
+            )
+            return mealie.update_shopping_list_label_settings(list_id, settings)
+        except Exception as e:
+            error_msg = f"Error updating label settings on list '{list_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def add_recipes_to_shopping_list(
+        list_id: str,
+        recipes: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Add multiple recipes' ingredients to a shopping list in one call.
+
+        Args:
+            list_id: UUID of the shopping list
+            recipes: List of items, each with:
+                - ``recipeId`` (required, UUID)
+                - ``recipeIncrementQuantity`` (default 1)
+                - ``recipeIngredients`` (optional subset of ingredients to include)
+        """
+        try:
+            logger.info(
+                {
+                    "message": "Adding recipes to shopping list",
+                    "list_id": list_id,
+                    "count": len(recipes),
+                }
+            )
+            return mealie.add_recipes_to_shopping_list(list_id, recipes)
+        except Exception as e:
+            error_msg = f"Error adding recipes to list '{list_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)

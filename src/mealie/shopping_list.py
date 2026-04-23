@@ -387,3 +387,70 @@ class ShoppingListMixin:
 
         logger.info({"message": "Deleting bulk shopping list items", "count": len(item_ids)})
         return self._handle_request("DELETE", "/api/households/shopping/items", params=params)
+
+    def update_shopping_list_label_settings(
+        self,
+        list_id: str,
+        settings: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Update which labels appear (and in what order) on a shopping list.
+
+        Mealie has no GET for this endpoint — the current label settings come
+        back as part of the full shopping-list GET (``labelSettings`` field).
+        To reorder, read the list, mutate positions on the returned array, and
+        pass it back here.
+
+        Args:
+            list_id: UUID of the shopping list
+            settings: List of ShoppingListMultiPurposeLabelUpdate dicts.
+                Each requires: id, shoppingListId, labelId; optional: position.
+        """
+        if not list_id:
+            raise ValueError("list_id cannot be empty")
+        if not settings:
+            raise ValueError("settings cannot be empty")
+
+        logger.info(
+            {
+                "message": "Updating shopping list label settings",
+                "list_id": list_id,
+                "count": len(settings),
+            }
+        )
+        return self._handle_request(
+            "PUT",
+            f"/api/households/shopping/lists/{list_id}/label-settings",
+            json=settings,
+        )
+
+    def add_recipes_to_shopping_list(
+        self,
+        list_id: str,
+        recipes: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Add the ingredients of multiple recipes to a shopping list at once.
+
+        Args:
+            list_id: UUID of the shopping list
+            recipes: List of ShoppingListAddRecipeParamsBulk dicts. Each entry:
+                - recipeId (required, UUID)
+                - recipeIncrementQuantity (default 1) — how many recipe yields worth
+                - recipeIngredients (optional) — subset of ingredients to include
+        """
+        if not list_id:
+            raise ValueError("list_id cannot be empty")
+        if not recipes:
+            raise ValueError("recipes cannot be empty")
+
+        logger.info(
+            {
+                "message": "Adding multiple recipes to shopping list",
+                "list_id": list_id,
+                "count": len(recipes),
+            }
+        )
+        return self._handle_request(
+            "POST",
+            f"/api/households/shopping/lists/{list_id}/recipe",
+            json=recipes,
+        )

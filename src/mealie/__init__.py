@@ -3,6 +3,7 @@ from .client import MealieClient
 from .cookbooks import CookbooksMixin
 from .foods import FoodsMixin
 from .group import GroupMixin
+from .household import HouseholdMixin
 from .labels import LabelsMixin
 from .mealplan import MealplanMixin
 from .recipe import RecipeMixin
@@ -24,6 +25,7 @@ class MealieFetcher(
     ShoppingListMixin,
     MealplanMixin,
     CookbooksMixin,
+    HouseholdMixin,
     UserMixin,
     GroupMixin,
     MealieClient,

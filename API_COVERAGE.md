@@ -7,7 +7,7 @@ This document compares the MCP server implementation against the official Mealie
 | Category | Total Endpoints | Implemented | Coverage |
 |----------|----------------|-------------|----------|
 | Recipe Operations | 20 | 16 | 80% |
-| Shopping Lists | 17 | 14 | 82% |
+| Shopping Lists | 19 | 16 | 84% |
 | Categories | 7 | 7 | 100% ✅ |
 | Tags | 7 | 7 | 100% ✅ |
 | Tools (organizer) | 6 | 6 | 100% ✅ |
@@ -15,8 +15,12 @@ This document compares the MCP server implementation against the official Mealie
 | Foods | 6 | 6 | 100% ✅ |
 | Units | 6 | 6 | 100% ✅ |
 | Meal Plans | 8 | 8 | 100% ✅ |
+| Meal Plan Rules | 5 | 5 | 100% ✅ |
 | Cookbooks | 6 | 6 | 100% ✅ |
-| **Total Priority APIs** | **88** | **81** | **92%** |
+| User Self-Service | 7 | 7 | 100% ✅ |
+| Household Context | 7 | 7 | 100% ✅ |
+| Group Context | 10 | 10 | 100% ✅ |
+| **Total Priority APIs** | **119** | **116** | **97%** |
 
 ## Detailed Coverage
 
@@ -69,10 +73,8 @@ This document compares the MCP server implementation against the official Mealie
 - ✅ `PUT /api/households/shopping/items` - Bulk update
 - ✅ `DELETE /api/households/shopping/items/{id}` - Delete item
 - ✅ `DELETE /api/households/shopping/items` - Bulk delete (query params)
-
-**Not Yet Implemented:**
-- ⏳ `PUT /api/households/shopping/lists/{id}/label-settings` - Update label settings
-- ⏳ `POST /api/households/shopping/lists/{id}/recipe` - Add multiple recipes (array payload)
+- ✅ `PUT /api/households/shopping/lists/{id}/label-settings` - Update label settings
+- ✅ `POST /api/households/shopping/lists/{id}/recipe` - Add multiple recipes (array payload)
 
 ### ✅ Categories (7/7 implemented - 100%)
 
@@ -149,6 +151,50 @@ This document compares the MCP server implementation against the official Mealie
 - ✅ `PUT /api/groups/labels/{id}` - Update label
 - ✅ `DELETE /api/groups/labels/{id}` - Delete label
 
+### ✅ Meal Plan Rules (5/5 implemented - 100%)
+
+Rules constrain random-meal selection by day + entry_type + recipe filter.
+
+- ✅ `GET /api/households/mealplans/rules` - List rules
+- ✅ `POST /api/households/mealplans/rules` - Create rule
+- ✅ `GET /api/households/mealplans/rules/{id}` - Get by ID
+- ✅ `PUT /api/households/mealplans/rules/{id}` - Update rule
+- ✅ `DELETE /api/households/mealplans/rules/{id}` - Delete rule
+
+### ✅ User Self-Service (7/7 implemented - 100%)
+
+- ✅ `GET /api/users/self` - Current user profile
+- ✅ `GET /api/users/self/favorites` - List my favorites
+- ✅ `POST /api/users/{id}/favorites/{slug}` - Add favorite
+- ✅ `DELETE /api/users/{id}/favorites/{slug}` - Remove favorite
+- ✅ `GET /api/users/self/ratings` - List my ratings
+- ✅ `GET /api/users/self/ratings/{recipe_id}` - Get my rating for a recipe
+- ✅ `POST /api/users/{id}/ratings/{slug}` - Rate a recipe
+
+### ✅ Household Context (7/7 implemented - 100%)
+
+- ✅ `GET /api/households/self` - Current household
+- ✅ `GET /api/households/self/recipes/{slug}` - Household-scoped recipe
+- ✅ `GET /api/households/members` - List members
+- ✅ `GET /api/households/preferences` - Read preferences
+- ✅ `PUT /api/households/preferences` - Update preferences
+- ✅ `PUT /api/households/permissions` - Set member permissions
+- ✅ `GET /api/households/statistics` - Household counts
+
+### ✅ Group Context (10/10 implemented - 100%)
+
+- ✅ `GET /api/groups/self` - Current group
+- ✅ `GET /api/groups/preferences` - Read group preferences
+- ✅ `PUT /api/groups/preferences` - Update group preferences
+- ✅ `GET /api/groups/members` - List members
+- ✅ `GET /api/groups/members/{username_or_id}` - Get member
+- ✅ `GET /api/groups/households` - List households
+- ✅ `GET /api/groups/households/{slug}` - Get household by slug
+- ✅ `GET /api/groups/storage` - Storage usage
+- ✅ `GET /api/groups/reports` - List reports
+- ✅ `GET /api/groups/reports/{id}` - Get report
+- ✅ `DELETE /api/groups/reports/{id}` - Delete report
+
 ## Not Yet Covered (Lower Priority)
 
 The following API areas are available but not yet implemented:
@@ -164,12 +210,11 @@ The following API areas are available but not yet implemented:
 - Webhooks (`/api/households/webhooks/*`)
 - Event notifications (`/api/households/event-notifications/*`)
 - Recipe actions (`/api/households/recipe-actions/*`)
-- Meal plan rules (`/api/households/mealplans/rules/*`)
+- Household invitations (`/api/households/invitations/*`) — Tier 4
 
 ### Admin & User Management
 - User administration (`/api/admin/users/*`)
-- Group management (`/api/groups/*`)
-- User profiles (`/api/users/self/*`)
+- User account management — password reset, API tokens, profile image upload (Tier 4)
 - Authentication endpoints
 
 ### Other Features

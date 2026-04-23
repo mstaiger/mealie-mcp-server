@@ -231,3 +231,92 @@ def register_mealplan_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def get_mealplan_rules(
+        page: Optional[int] = None,
+        per_page: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """List meal plan rules for the current household.
+
+        Rules constrain random-meal selection by day + entry_type + recipe filter.
+        """
+        try:
+            logger.info({"message": "Fetching mealplan rules"})
+            return mealie.get_mealplan_rules(page=page, per_page=per_page)
+        except Exception as e:
+            error_msg = f"Error fetching mealplan rules: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def create_mealplan_rule(
+        day: str = "unset",
+        entry_type: str = "unset",
+        query_filter_string: str = "",
+    ) -> Dict[str, Any]:
+        """Create a meal plan rule.
+
+        Args:
+            day: monday | tuesday | wednesday | thursday | friday | saturday | sunday | unset
+            entry_type: breakfast | lunch | dinner | side | unset
+            query_filter_string: Recipe filter expression in Mealie's query DSL
+                (e.g. ``tags.slug = "quick"``)
+        """
+        try:
+            logger.info({"message": "Creating mealplan rule", "day": day, "entry_type": entry_type})
+            return mealie.create_mealplan_rule(
+                day=day, entry_type=entry_type, query_filter_string=query_filter_string
+            )
+        except Exception as e:
+            error_msg = f"Error creating mealplan rule: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def get_mealplan_rule(rule_id: str) -> Dict[str, Any]:
+        """Get a specific meal plan rule by UUID."""
+        try:
+            logger.info({"message": "Fetching mealplan rule", "rule_id": rule_id})
+            return mealie.get_mealplan_rule(rule_id)
+        except Exception as e:
+            error_msg = f"Error fetching mealplan rule '{rule_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def update_mealplan_rule(
+        rule_id: str,
+        day: Optional[str] = None,
+        entry_type: Optional[str] = None,
+        query_filter_string: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a meal plan rule. Only provided fields are changed."""
+        try:
+            logger.info({"message": "Updating mealplan rule", "rule_id": rule_id})
+            return mealie.update_mealplan_rule(
+                rule_id,
+                day=day,
+                entry_type=entry_type,
+                query_filter_string=query_filter_string,
+            )
+        except Exception as e:
+            error_msg = f"Error updating mealplan rule '{rule_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def delete_mealplan_rule(rule_id: str) -> Dict[str, Any]:
+        """Delete a meal plan rule by UUID."""
+        try:
+            logger.info({"message": "Deleting mealplan rule", "rule_id": rule_id})
+            return mealie.delete_mealplan_rule(rule_id)
+        except Exception as e:
+            error_msg = f"Error deleting mealplan rule '{rule_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
