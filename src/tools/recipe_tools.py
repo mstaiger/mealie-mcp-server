@@ -1,4 +1,5 @@
 import logging
+import os
 import traceback
 from typing import Any, Dict, List, Optional
 
@@ -725,6 +726,206 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             return mealie.test_recipe_scrape(url=url, use_openai=use_openai)
         except Exception as e:
             error_msg = f"Error test-scraping '{url}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def import_recipe_from_html_or_json(
+        data: str, include_tags: bool = False
+    ) -> Dict[str, Any]:
+        """Create a recipe by parsing raw HTML or a schema.org/Recipe JSON string.
+
+        Useful when a site blocks scraping but you can paste the page source, or
+        when you have a structured JSON blob.
+
+        Args:
+            data: Raw HTML source, OR a JSON-encoded schema.org/Recipe object.
+            include_tags: If True, attempt to import tags.
+        """
+        try:
+            logger.info({"message": "Importing recipe from HTML/JSON", "size": len(data)})
+            return mealie.import_recipe_from_html_or_json(data=data, include_tags=include_tags)
+        except Exception as e:
+            error_msg = f"Error importing recipe from HTML/JSON: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def import_recipe_from_zip_file(archive_path: str) -> Dict[str, Any]:
+        """Create a recipe from a Mealie ZIP archive on disk.
+
+        Args:
+            archive_path: Filesystem path to a Mealie-exported recipe ZIP.
+        """
+        try:
+            with open(archive_path, "rb") as f:
+                archive_data = f.read()
+            filename = os.path.basename(archive_path)
+            logger.info(
+                {"message": "Importing recipe from ZIP", "path": archive_path, "size": len(archive_data)}
+            )
+            return mealie.import_recipe_from_zip(archive_data=archive_data, filename=filename)
+        except Exception as e:
+            error_msg = f"Error importing recipe from ZIP '{archive_path}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def import_recipe_from_image_files(
+        image_paths: List[str],
+        translate_language: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a recipe by OCRing one or more image files (requires Mealie's OpenAI config).
+
+        Args:
+            image_paths: Filesystem paths to one or more image files
+                (e.g. a photograph of a cookbook page). Multiple pages are
+                stitched server-side into a single recipe.
+            translate_language: Optional target language code (e.g. "en").
+        """
+        try:
+            images = []
+            for path in image_paths:
+                with open(path, "rb") as f:
+                    images.append({"filename": os.path.basename(path), "data": f.read()})
+            logger.info(
+                {
+                    "message": "Importing recipe from image(s)",
+                    "count": len(images),
+                    "translate": translate_language,
+                }
+            )
+            return mealie.import_recipe_from_image(
+                images=images, translate_language=translate_language
+            )
+        except Exception as e:
+            error_msg = f"Error importing recipe from image(s): {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def bulk_categorize_recipes(
+        recipe_slugs: List[str],
+        categories: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Attach categories to many recipes in one call.
+
+        Args:
+            recipe_slugs: Slugs of recipes to update.
+            categories: Full CategoryBase dicts (each needs id, name, slug).
+                Use get_categories to fetch current objects.
+        """
+        try:
+            logger.info({"message": "Bulk-categorizing recipes", "count": len(recipe_slugs)})
+            return mealie.bulk_categorize_recipes(recipe_slugs, categories)
+        except Exception as e:
+            error_msg = f"Error bulk-categorizing recipes: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def bulk_tag_recipes(
+        recipe_slugs: List[str],
+        tags: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Attach tags to many recipes in one call.
+
+        Args:
+            recipe_slugs: Slugs of recipes to update.
+            tags: Full TagBase dicts (each needs id, name, slug).
+                Use get_tags to fetch current objects.
+        """
+        try:
+            logger.info({"message": "Bulk-tagging recipes", "count": len(recipe_slugs)})
+            return mealie.bulk_tag_recipes(recipe_slugs, tags)
+        except Exception as e:
+            error_msg = f"Error bulk-tagging recipes: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def bulk_update_recipe_settings(
+        recipe_slugs: List[str],
+        public: Optional[bool] = None,
+        show_nutrition: Optional[bool] = None,
+        show_assets: Optional[bool] = None,
+        landscape_view: Optional[bool] = None,
+        disable_comments: Optional[bool] = None,
+        disable_amount: Optional[bool] = None,
+        locked: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Apply the same settings across many recipes (public, locked, etc.).
+
+        Note: Mealie's RecipeSettings schema uses server defaults for omitted
+        fields, so only provide settings you actually want to change — but
+        ALL recipes in the batch will receive the same values.
+        """
+        try:
+            logger.info(
+                {"message": "Bulk-updating recipe settings", "count": len(recipe_slugs)}
+            )
+            return mealie.bulk_update_recipe_settings(
+                recipe_slugs,
+                public=public,
+                show_nutrition=show_nutrition,
+                show_assets=show_assets,
+                landscape_view=landscape_view,
+                disable_comments=disable_comments,
+                disable_amount=disable_amount,
+                locked=locked,
+            )
+        except Exception as e:
+            error_msg = f"Error bulk-updating recipe settings: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def bulk_delete_recipes(recipe_slugs: List[str]) -> Dict[str, Any]:
+        """Delete many recipes at once by slug."""
+        try:
+            logger.info({"message": "Bulk-deleting recipes", "count": len(recipe_slugs)})
+            return mealie.bulk_delete_recipes(recipe_slugs)
+        except Exception as e:
+            error_msg = f"Error bulk-deleting recipes: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def update_recipes_batch(recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Full-replace many recipes in a single call (PUT /api/recipes).
+
+        Each entry must be a complete recipe body; missing fields will be
+        zeroed out. Prefer patch_recipes_batch for partial updates.
+        """
+        try:
+            logger.info({"message": "Batch-replacing recipes", "count": len(recipes)})
+            return mealie.update_recipes_batch(recipes)
+        except Exception as e:
+            error_msg = f"Error batch-replacing recipes: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def patch_recipes_batch(recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Partial-update many recipes in a single call (PATCH /api/recipes).
+
+        Each entry must carry enough identifying info (slug and/or id) plus
+        the fields to change. Unspecified fields are left alone.
+        """
+        try:
+            logger.info({"message": "Batch-patching recipes", "count": len(recipes)})
+            return mealie.patch_recipes_batch(recipes)
+        except Exception as e:
+            error_msg = f"Error batch-patching recipes: {str(e)}"
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
             raise ToolError(error_msg)

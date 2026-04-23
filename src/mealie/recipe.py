@@ -401,3 +401,216 @@ class RecipeMixin:
         return self._handle_request(
             "POST", "/api/recipes/test-scrape-url", json=payload
         )
+
+    def import_recipe_from_html_or_json(
+        self, data: str, include_tags: bool = False
+    ) -> Dict[str, Any]:
+        """Create a recipe from raw HTML or a schema.org/Recipe JSON string.
+
+        Args:
+            data: Raw HTML source of a recipe page, OR a JSON-encoded
+                schema.org/Recipe object (as a string, not a dict).
+            include_tags: If True, attempt to import tags.
+        """
+        if not data:
+            raise ValueError("data cannot be empty")
+
+        payload = {"data": data, "includeTags": include_tags}
+        logger.info(
+            {"message": "Importing recipe from HTML/JSON", "size": len(data)}
+        )
+        return self._handle_request(
+            "POST", "/api/recipes/create/html-or-json", json=payload
+        )
+
+    def import_recipe_from_zip(
+        self, archive_data: bytes, filename: str
+    ) -> Dict[str, Any]:
+        """Create a recipe from a Mealie ZIP archive (multipart upload).
+
+        Args:
+            archive_data: Binary contents of the ZIP
+            filename: Original filename (used as the multipart field name)
+        """
+        if not archive_data:
+            raise ValueError("archive_data cannot be empty")
+        if not filename:
+            raise ValueError("filename cannot be empty")
+
+        files = {"archive": (filename, archive_data)}
+        logger.info(
+            {
+                "message": "Importing recipe from ZIP",
+                "filename": filename,
+                "size": len(archive_data),
+            }
+        )
+        return self._handle_request(
+            "POST", "/api/recipes/create/zip", files=files
+        )
+
+    def import_recipe_from_image(
+        self,
+        images: List[Dict[str, Any]],
+        translate_language: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a recipe from one or more images via Mealie's OpenAI OCR flow.
+
+        Args:
+            images: List of dicts each with ``filename`` (str) and ``data`` (bytes).
+            translate_language: Optional language code for translated output (e.g. "en").
+        """
+        if not images:
+            raise ValueError("images cannot be empty")
+
+        files = [
+            ("images", (img["filename"], img["data"]))
+            for img in images
+        ]
+        params = {}
+        if translate_language is not None:
+            params["translateLanguage"] = translate_language
+
+        logger.info(
+            {
+                "message": "Importing recipe from image",
+                "count": len(images),
+                "translate": translate_language,
+            }
+        )
+        return self._handle_request(
+            "POST",
+            "/api/recipes/create/image",
+            files=files,
+            params=params or None,
+        )
+
+    def bulk_categorize_recipes(
+        self, recipe_slugs: List[str], categories: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Attach categories to many recipes at once.
+
+        Args:
+            recipe_slugs: List of recipe slugs to update
+            categories: Full CategoryBase dicts (each with id + name + slug)
+        """
+        if not recipe_slugs:
+            raise ValueError("recipe_slugs cannot be empty")
+        if not categories:
+            raise ValueError("categories cannot be empty")
+
+        payload = {"recipes": recipe_slugs, "categories": categories}
+        logger.info(
+            {"message": "Bulk-categorizing recipes", "count": len(recipe_slugs)}
+        )
+        return self._handle_request(
+            "POST", "/api/recipes/bulk-actions/categorize", json=payload
+        )
+
+    def bulk_tag_recipes(
+        self, recipe_slugs: List[str], tags: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Attach tags to many recipes at once.
+
+        Args:
+            recipe_slugs: List of recipe slugs to update
+            tags: Full TagBase dicts (each with id + name + slug)
+        """
+        if not recipe_slugs:
+            raise ValueError("recipe_slugs cannot be empty")
+        if not tags:
+            raise ValueError("tags cannot be empty")
+
+        payload = {"recipes": recipe_slugs, "tags": tags}
+        logger.info({"message": "Bulk-tagging recipes", "count": len(recipe_slugs)})
+        return self._handle_request(
+            "POST", "/api/recipes/bulk-actions/tag", json=payload
+        )
+
+    def bulk_update_recipe_settings(
+        self,
+        recipe_slugs: List[str],
+        public: Optional[bool] = None,
+        show_nutrition: Optional[bool] = None,
+        show_assets: Optional[bool] = None,
+        landscape_view: Optional[bool] = None,
+        disable_comments: Optional[bool] = None,
+        disable_amount: Optional[bool] = None,
+        locked: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Apply the same settings (public, locked, etc.) across many recipes.
+
+        Omitted fields are left at their server defaults (Mealie's
+        RecipeSettings schema uses defaults for unspecified keys).
+        """
+        if not recipe_slugs:
+            raise ValueError("recipe_slugs cannot be empty")
+
+        settings: Dict[str, Any] = {}
+        if public is not None:
+            settings["public"] = public
+        if show_nutrition is not None:
+            settings["showNutrition"] = show_nutrition
+        if show_assets is not None:
+            settings["showAssets"] = show_assets
+        if landscape_view is not None:
+            settings["landscapeView"] = landscape_view
+        if disable_comments is not None:
+            settings["disableComments"] = disable_comments
+        if disable_amount is not None:
+            settings["disableAmount"] = disable_amount
+        if locked is not None:
+            settings["locked"] = locked
+
+        if not settings:
+            raise ValueError("At least one setting must be provided")
+
+        payload = {"recipes": recipe_slugs, "settings": settings}
+        logger.info(
+            {
+                "message": "Bulk-updating recipe settings",
+                "count": len(recipe_slugs),
+                "fields": list(settings),
+            }
+        )
+        return self._handle_request(
+            "POST", "/api/recipes/bulk-actions/settings", json=payload
+        )
+
+    def bulk_delete_recipes(self, recipe_slugs: List[str]) -> Dict[str, Any]:
+        """Delete many recipes at once by slug."""
+        if not recipe_slugs:
+            raise ValueError("recipe_slugs cannot be empty")
+
+        payload = {"recipes": recipe_slugs}
+        logger.info({"message": "Bulk-deleting recipes", "count": len(recipe_slugs)})
+        return self._handle_request(
+            "POST", "/api/recipes/bulk-actions/delete", json=payload
+        )
+
+    def update_recipes_batch(self, recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Full-replace many recipes in a single call (PUT /api/recipes).
+
+        Args:
+            recipes: List of complete recipe dicts (Recipe-Input shape). Each
+                should include the full recipe body; partial payloads will
+                zero out missing fields. Use ``patch_recipes_batch`` for
+                partial updates.
+        """
+        if not recipes:
+            raise ValueError("recipes cannot be empty")
+
+        logger.info({"message": "Batch-replacing recipes", "count": len(recipes)})
+        return self._handle_request("PUT", "/api/recipes", json=recipes)
+
+    def patch_recipes_batch(self, recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Partial-update many recipes in a single call (PATCH /api/recipes).
+
+        Each entry must carry enough identifying info (slug and/or id) plus
+        the fields to change. Unspecified fields are left alone.
+        """
+        if not recipes:
+            raise ValueError("recipes cannot be empty")
+
+        logger.info({"message": "Batch-patching recipes", "count": len(recipes)})
+        return self._handle_request("PATCH", "/api/recipes", json=recipes)
