@@ -150,3 +150,84 @@ def register_mealplan_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
                 {"message": "Error traceback", "traceback": traceback.format_exc()}
             )
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def get_mealplan(mealplan_id: int) -> Dict[str, Any]:
+        """Get a single mealplan entry by its integer ID."""
+        try:
+            logger.info({"message": "Fetching mealplan entry", "mealplan_id": mealplan_id})
+            return mealie.get_mealplan(mealplan_id)
+        except Exception as e:
+            error_msg = f"Error fetching mealplan entry '{mealplan_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def update_mealplan(
+        mealplan_id: int,
+        date: Optional[str] = None,
+        entry_type: Optional[str] = None,
+        title: Optional[str] = None,
+        text: Optional[str] = None,
+        recipe_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a mealplan entry.
+
+        Args:
+            mealplan_id: Integer ID of the mealplan entry
+            date: New date (ISO YYYY-MM-DD)
+            entry_type: breakfast | lunch | dinner | side
+            title: Non-recipe title text
+            text: Notes text
+            recipe_id: UUID of a recipe to associate (set to '' to clear)
+        """
+        try:
+            logger.info({"message": "Updating mealplan entry", "mealplan_id": mealplan_id})
+            return mealie.update_mealplan(
+                mealplan_id,
+                date=date,
+                entry_type=entry_type,
+                title=title,
+                text=text,
+                recipe_id=recipe_id,
+            )
+        except Exception as e:
+            error_msg = f"Error updating mealplan entry '{mealplan_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def delete_mealplan(mealplan_id: int) -> Dict[str, Any]:
+        """Delete a mealplan entry by its integer ID."""
+        try:
+            logger.info({"message": "Deleting mealplan entry", "mealplan_id": mealplan_id})
+            return mealie.delete_mealplan(mealplan_id)
+        except Exception as e:
+            error_msg = f"Error deleting mealplan entry '{mealplan_id}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def create_random_mealplan(
+        date: str,
+        entry_type: str = "dinner",
+    ) -> Dict[str, Any]:
+        """Create a random mealplan entry. Respects household mealplan rules.
+
+        Args:
+            date: Target date (ISO YYYY-MM-DD)
+            entry_type: breakfast | lunch | dinner | side (default: dinner)
+        """
+        try:
+            logger.info(
+                {"message": "Creating random mealplan", "date": date, "entry_type": entry_type}
+            )
+            return mealie.create_random_mealplan(date=date, entry_type=entry_type)
+        except Exception as e:
+            error_msg = f"Error creating random mealplan: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)

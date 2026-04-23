@@ -667,3 +667,64 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             logger.error({"message": error_msg})
             logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
             raise ToolError(error_msg)
+
+    @mcp.tool()
+    def import_recipe_from_url(url: str, include_tags: bool = False) -> str:
+        """Scrape a recipe from a URL and save it to the database.
+
+        Args:
+            url: The source URL to scrape.
+            include_tags: If True, attempt to import tags from the scraped page.
+
+        Returns:
+            The slug of the newly created recipe.
+        """
+        try:
+            logger.info({"message": "Importing recipe from URL", "url": url})
+            return mealie.import_recipe_from_url(url=url, include_tags=include_tags)
+        except Exception as e:
+            error_msg = f"Error importing recipe from '{url}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def import_recipes_from_urls(imports: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Scrape multiple recipes from URLs (async bulk import).
+
+        Args:
+            imports: List of items, each with a ``url`` key and optional
+                ``categories`` / ``tags`` arrays. Example:
+                ``[{"url": "https://..."}, {"url": "https://...", "tags": [{"id": "..."}]}]``
+
+        Returns:
+            Acknowledgement from Mealie; processing happens asynchronously.
+        """
+        try:
+            logger.info({"message": "Bulk-importing recipes", "count": len(imports)})
+            return mealie.import_recipes_from_urls(imports)
+        except Exception as e:
+            error_msg = f"Error bulk-importing recipes: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
+    def test_recipe_scrape(url: str, use_openai: bool = False) -> Dict[str, Any]:
+        """Preview a recipe scrape without saving it.
+
+        Args:
+            url: The source URL to test-scrape.
+            use_openai: If True, use Mealie's OpenAI-assisted scraper (requires server config).
+
+        Returns:
+            The scraped-but-not-saved recipe structure.
+        """
+        try:
+            logger.info({"message": "Testing recipe scrape", "url": url, "use_openai": use_openai})
+            return mealie.test_recipe_scrape(url=url, use_openai=use_openai)
+        except Exception as e:
+            error_msg = f"Error test-scraping '{url}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)

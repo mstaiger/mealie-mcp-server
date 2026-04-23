@@ -6,18 +6,21 @@ This document compares the MCP server implementation against the official Mealie
 
 | Category | Total Endpoints | Implemented | Coverage |
 |----------|----------------|-------------|----------|
-| Recipe Operations | 20 | 13 | 65% |
+| Recipe Operations | 20 | 16 | 80% |
 | Shopping Lists | 17 | 14 | 82% |
 | Categories | 7 | 7 | 100% ✅ |
 | Tags | 7 | 7 | 100% ✅ |
+| Tools (organizer) | 6 | 6 | 100% ✅ |
+| Labels | 5 | 5 | 100% ✅ |
 | Foods | 6 | 6 | 100% ✅ |
 | Units | 6 | 6 | 100% ✅ |
-| Meal Plans | 7 | 4 | 57% |
-| **Total Priority APIs** | **70** | **57** | **81%** |
+| Meal Plans | 8 | 8 | 100% ✅ |
+| Cookbooks | 6 | 6 | 100% ✅ |
+| **Total Priority APIs** | **88** | **81** | **92%** |
 
 ## Detailed Coverage
 
-### ✅ Recipe Operations (13/20 implemented)
+### ✅ Recipe Operations (16/20 implemented)
 
 **Implemented:**
 - ✅ `GET /api/recipes` - List/search recipes
@@ -31,12 +34,13 @@ This document compares the MCP server implementation against the official Mealie
 - ✅ `POST /api/recipes/{slug}/image` - Scrape image from URL
 - ✅ `PUT /api/recipes/{slug}/image` - Upload image file
 - ✅ `POST /api/recipes/{slug}/assets` - Upload asset file
+- ✅ `POST /api/recipes/create/url` - Import recipe by URL
+- ✅ `POST /api/recipes/create/url/bulk` - Bulk import from URLs
+- ✅ `POST /api/recipes/test-scrape-url` - Preview scrape without saving
 - ✅ `GET /api/recipes/suggestions` - Get recipe suggestions (via search)
 - ✅ Advanced filtering with AND/OR logic for tags/categories
 
 **Not Yet Implemented:**
-- ⏳ `POST /api/recipes/create/url` - Create from URL
-- ⏳ `POST /api/recipes/create/url/bulk` - Bulk create from URLs
 - ⏳ `POST /api/recipes/create/zip` - Create from ZIP
 - ⏳ `POST /api/recipes/create/html-or-json` - Create from HTML/JSON
 - ⏳ `PUT /api/recipes` - Bulk update
@@ -108,18 +112,42 @@ This document compares the MCP server implementation against the official Mealie
 - ✅ `DELETE /api/units/{id}` - Delete
 - ✅ `PUT /api/units/merge` - Merge two units
 
-### 🔶 Meal Plans (4/7 implemented)
+### ✅ Meal Plans (8/8 implemented - 100%)
 
-**Implemented:**
 - ✅ `GET /api/households/mealplans` - List meal plans
 - ✅ `GET /api/households/mealplans/today` - Get today's plan
 - ✅ `POST /api/households/mealplans` - Create entry
-- ✅ Bulk creation via loop (not native bulk endpoint)
+- ✅ `GET /api/households/mealplans/{id}` - Get by ID
+- ✅ `PUT /api/households/mealplans/{id}` - Update entry
+- ✅ `DELETE /api/households/mealplans/{id}` - Delete entry
+- ✅ `POST /api/households/mealplans/random` - Create random entry (respects household rules)
+- ✅ Bulk creation via loop (not a native bulk endpoint)
 
-**Not Yet Implemented:**
-- ⏳ `GET /api/households/mealplans/{id}` - Get by ID
-- ⏳ `PUT /api/households/mealplans/{id}` - Update entry
-- ⏳ `DELETE /api/households/mealplans/{id}` - Delete entry
+### ✅ Cookbooks (6/6 implemented - 100%)
+
+- ✅ `GET /api/households/cookbooks` - List cookbooks
+- ✅ `POST /api/households/cookbooks` - Create cookbook
+- ✅ `GET /api/households/cookbooks/{id}` - Get by id or slug
+- ✅ `PUT /api/households/cookbooks/{id}` - Update cookbook
+- ✅ `DELETE /api/households/cookbooks/{id}` - Delete cookbook
+- ✅ `PUT /api/households/cookbooks` - Bulk update (primarily for reordering)
+
+### ✅ Tools / Kitchen Equipment (6/6 implemented - 100%)
+
+- ✅ `GET /api/organizers/tools` - List all
+- ✅ `POST /api/organizers/tools` - Create
+- ✅ `GET /api/organizers/tools/{id}` - Get by ID
+- ✅ `GET /api/organizers/tools/slug/{slug}` - Get by slug
+- ✅ `PUT /api/organizers/tools/{id}` - Update
+- ✅ `DELETE /api/organizers/tools/{id}` - Delete
+
+### ✅ Labels (5/5 implemented - 100%)
+
+- ✅ `GET /api/groups/labels` - List labels
+- ✅ `POST /api/groups/labels` - Create label
+- ✅ `GET /api/groups/labels/{id}` - Get by ID
+- ✅ `PUT /api/groups/labels/{id}` - Update label
+- ✅ `DELETE /api/groups/labels/{id}` - Delete label
 
 ## Not Yet Covered (Lower Priority)
 
@@ -133,14 +161,10 @@ The following API areas are available but not yet implemented:
 - Recipe scraper settings
 
 ### Household Management
-- Cookbooks (`/api/households/cookbooks/*`)
 - Webhooks (`/api/households/webhooks/*`)
 - Event notifications (`/api/households/event-notifications/*`)
 - Recipe actions (`/api/households/recipe-actions/*`)
-
-### Organizer Features
-- Tools (`/api/organizers/tools/*`)
-- Labels (`/api/organizers/labels/*`)
+- Meal plan rules (`/api/households/mealplans/rules/*`)
 
 ### Admin & User Management
 - User administration (`/api/admin/users/*`)

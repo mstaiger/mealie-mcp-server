@@ -103,3 +103,94 @@ class MealplanMixin:
         """
         logger.info({"message": "Retrieving today's mealplan"})
         return self._handle_request("GET", "/api/households/mealplans/today")
+
+    def get_mealplan(self, mealplan_id: int) -> Dict[str, Any]:
+        """Get a single mealplan entry by its integer ID."""
+        if mealplan_id is None:
+            raise ValueError("mealplan_id cannot be empty")
+
+        logger.info({"message": "Retrieving mealplan entry", "mealplan_id": mealplan_id})
+        return self._handle_request("GET", f"/api/households/mealplans/{mealplan_id}")
+
+    def update_mealplan(
+        self,
+        mealplan_id: int,
+        date: Optional[str] = None,
+        entry_type: Optional[str] = None,
+        title: Optional[str] = None,
+        text: Optional[str] = None,
+        recipe_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a mealplan entry.
+
+        UpdatePlanEntry requires id + groupId + userId in the payload, so this
+        fetches the current record and overlays the given fields.
+        """
+        if mealplan_id is None:
+            raise ValueError("mealplan_id cannot be empty")
+
+        updates: Dict[str, Any] = {}
+        if date is not None:
+            updates["date"] = date
+        if entry_type is not None:
+            updates["entryType"] = entry_type
+        if title is not None:
+            updates["title"] = title
+        if text is not None:
+            updates["text"] = text
+        if recipe_id is not None:
+            updates["recipeId"] = recipe_id
+
+        if not updates:
+            raise ValueError("At least one field must be provided to update")
+
+        existing = self.get_mealplan(mealplan_id)
+        payload = {
+            "id": existing["id"],
+            "groupId": existing["groupId"],
+            "userId": existing["userId"],
+            "date": existing["date"],
+            "entryType": existing.get("entryType", "breakfast"),
+            "title": existing.get("title", ""),
+            "text": existing.get("text", ""),
+            "recipeId": existing.get("recipeId"),
+        }
+        payload.update(updates)
+
+        logger.info({"message": "Updating mealplan entry", "mealplan_id": mealplan_id})
+        return self._handle_request(
+            "PUT", f"/api/households/mealplans/{mealplan_id}", json=payload
+        )
+
+    def delete_mealplan(self, mealplan_id: int) -> Dict[str, Any]:
+        """Delete a mealplan entry by its integer ID."""
+        if mealplan_id is None:
+            raise ValueError("mealplan_id cannot be empty")
+
+        logger.info({"message": "Deleting mealplan entry", "mealplan_id": mealplan_id})
+        return self._handle_request("DELETE", f"/api/households/mealplans/{mealplan_id}")
+
+    def create_random_mealplan(
+        self,
+        date: str,
+        entry_type: str = "dinner",
+    ) -> Dict[str, Any]:
+        """Create a random mealplan entry.
+
+        Respects any household mealplan rules; with no rules configured, picks
+        any random recipe.
+
+        Args:
+            date: Target date in ISO format (YYYY-MM-DD)
+            entry_type: breakfast | lunch | dinner | side (default: dinner)
+        """
+        if not date:
+            raise ValueError("date cannot be empty")
+
+        payload = {"date": date, "entryType": entry_type}
+        logger.info(
+            {"message": "Creating random mealplan entry", "date": date, "entry_type": entry_type}
+        )
+        return self._handle_request(
+            "POST", "/api/households/mealplans/random", json=payload
+        )

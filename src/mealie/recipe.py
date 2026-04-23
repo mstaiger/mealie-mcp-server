@@ -345,3 +345,59 @@ class RecipeMixin:
             "/api/parser/ingredients",
             json={"ingredients": ingredients},
         )
+
+    def import_recipe_from_url(self, url: str, include_tags: bool = False) -> str:
+        """Scrape a recipe from a URL and save it to the database.
+
+        Args:
+            url: The source URL to scrape
+            include_tags: If True, attempt to import tags from the scraped page
+
+        Returns:
+            The slug of the newly created recipe (Mealie returns it as a bare JSON string).
+        """
+        if not url:
+            raise ValueError("url cannot be empty")
+
+        payload = {"url": url, "includeTags": include_tags}
+        logger.info({"message": "Importing recipe from URL", "url": url})
+        return self._handle_request("POST", "/api/recipes/create/url", json=payload)
+
+    def import_recipes_from_urls(
+        self, imports: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Scrape multiple recipes from URLs (async bulk import).
+
+        Args:
+            imports: List of dicts matching CreateRecipeBulk. Each must have
+                a ``url`` key; may optionally include ``categories`` and
+                ``tags`` (lists of RecipeCategory / RecipeTag objects).
+
+        Returns:
+            JSON response from Mealie acknowledging the bulk import (202 Accepted).
+        """
+        if not imports:
+            raise ValueError("imports list cannot be empty")
+
+        payload = {"imports": imports}
+        logger.info({"message": "Bulk-importing recipes from URLs", "count": len(imports)})
+        return self._handle_request("POST", "/api/recipes/create/url/bulk", json=payload)
+
+    def test_recipe_scrape(self, url: str, use_openai: bool = False) -> Dict[str, Any]:
+        """Dry-run a recipe scrape to preview results without saving.
+
+        Args:
+            url: The source URL to scrape
+            use_openai: If True, use Mealie's OpenAI-assisted scraping (if configured)
+
+        Returns:
+            JSON response with the scraped-but-not-saved recipe structure.
+        """
+        if not url:
+            raise ValueError("url cannot be empty")
+
+        payload = {"url": url, "useOpenAI": use_openai}
+        logger.info({"message": "Testing recipe scrape", "url": url, "use_openai": use_openai})
+        return self._handle_request(
+            "POST", "/api/recipes/test-scrape-url", json=payload
+        )
