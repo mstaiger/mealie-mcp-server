@@ -11,8 +11,9 @@ This document compares the MCP server implementation against the official Mealie
 | Categories | 7 | 7 | 100% ✅ |
 | Tags | 7 | 7 | 100% ✅ |
 | Foods | 6 | 6 | 100% ✅ |
+| Units | 6 | 6 | 100% ✅ |
 | Meal Plans | 7 | 4 | 57% |
-| **Total Priority APIs** | **64** | **51** | **80%** |
+| **Total Priority APIs** | **70** | **57** | **81%** |
 
 ## Detailed Coverage
 
@@ -98,6 +99,15 @@ This document compares the MCP server implementation against the official Mealie
 - ✅ `DELETE /api/foods/{id}` - Delete
 - ✅ `PUT /api/foods/merge` - Merge two foods
 
+### ✅ Units (6/6 implemented - 100%)
+
+- ✅ `GET /api/units` - List all
+- ✅ `POST /api/units` - Create
+- ✅ `GET /api/units/{id}` - Get by ID
+- ✅ `PUT /api/units/{id}` - Update
+- ✅ `DELETE /api/units/{id}` - Delete
+- ✅ `PUT /api/units/merge` - Merge two units
+
 ### 🔶 Meal Plans (4/7 implemented)
 
 **Implemented:**
@@ -130,7 +140,6 @@ The following API areas are available but not yet implemented:
 
 ### Organizer Features
 - Tools (`/api/organizers/tools/*`)
-- Units (`/api/organizers/units/*`)
 - Labels (`/api/organizers/labels/*`)
 
 ### Admin & User Management

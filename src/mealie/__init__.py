@@ -6,6 +6,7 @@ from .mealplan import MealplanMixin
 from .recipe import RecipeMixin
 from .shopping_list import ShoppingListMixin
 from .tags import TagsMixin
+from .units import UnitsMixin
 from .user import UserMixin
 
 
@@ -14,6 +15,7 @@ class MealieFetcher(
     CategoriesMixin,
     TagsMixin,
     FoodsMixin,
+    UnitsMixin,
     ShoppingListMixin,
     MealplanMixin,
     UserMixin,
