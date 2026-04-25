@@ -123,8 +123,14 @@ class FoodsMixin:
         if not food_data:
             raise ValueError("Food data cannot be empty")
 
+        # Mealie's PUT is a full replace: the body's id field is bound
+        # straight into the SQL UPDATE, so a missing id becomes NULL and
+        # violates the NOT NULL primary key. Merge onto the existing food.
+        existing = self.get_food(food_id)
+        merged: Dict[str, Any] = {**existing, **food_data, "id": food_id}
+
         logger.info({"message": "Updating food", "food_id": food_id})
-        return self._handle_request("PUT", f"/api/foods/{food_id}", json=food_data)
+        return self._handle_request("PUT", f"/api/foods/{food_id}", json=merged)
 
     def delete_food(self, food_id: str) -> Dict[str, Any]:
         """Delete a specific food.

@@ -137,8 +137,14 @@ class UnitsMixin:
         if not unit_data:
             raise ValueError("Unit data cannot be empty")
 
+        # Mealie's PUT body has a nullable id field that gets bound straight
+        # into the SQL UPDATE — a missing id silently NULLs the primary key.
+        # Merge onto the existing unit so id is always present.
+        existing = self.get_unit(unit_id)
+        merged: Dict[str, Any] = {**existing, **unit_data, "id": unit_id}
+
         logger.info({"message": "Updating unit", "unit_id": unit_id})
-        return self._handle_request("PUT", f"/api/units/{unit_id}", json=unit_data)
+        return self._handle_request("PUT", f"/api/units/{unit_id}", json=merged)
 
     def delete_unit(self, unit_id: str) -> Dict[str, Any]:
         """Delete a specific unit.
