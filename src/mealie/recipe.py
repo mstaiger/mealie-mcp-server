@@ -485,6 +485,22 @@ class RecipeMixin:
             params=params or None,
         )
 
+    def _resolve_recipe_ids(self, recipe_slugs: List[str]) -> List[str]:
+        """Resolve recipe slugs to UUIDs.
+
+        Mealie's bulk-actions endpoints accept the field name `recipes` but
+        match against recipe.id (UUID), not slug — passing slugs returns 200
+        with zero rows updated.
+        """
+        ids: List[str] = []
+        for slug in recipe_slugs:
+            recipe = self._handle_request("GET", f"/api/recipes/{slug}")
+            recipe_id = recipe.get("id") if isinstance(recipe, dict) else None
+            if not recipe_id:
+                raise ValueError(f"Could not resolve recipe id for slug '{slug}'")
+            ids.append(recipe_id)
+        return ids
+
     def bulk_categorize_recipes(
         self, recipe_slugs: List[str], categories: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -499,9 +515,10 @@ class RecipeMixin:
         if not categories:
             raise ValueError("categories cannot be empty")
 
-        payload = {"recipes": recipe_slugs, "categories": categories}
+        recipe_ids = self._resolve_recipe_ids(recipe_slugs)
+        payload = {"recipes": recipe_ids, "categories": categories}
         logger.info(
-            {"message": "Bulk-categorizing recipes", "count": len(recipe_slugs)}
+            {"message": "Bulk-categorizing recipes", "count": len(recipe_ids)}
         )
         return self._handle_request(
             "POST", "/api/recipes/bulk-actions/categorize", json=payload
@@ -521,8 +538,9 @@ class RecipeMixin:
         if not tags:
             raise ValueError("tags cannot be empty")
 
-        payload = {"recipes": recipe_slugs, "tags": tags}
-        logger.info({"message": "Bulk-tagging recipes", "count": len(recipe_slugs)})
+        recipe_ids = self._resolve_recipe_ids(recipe_slugs)
+        payload = {"recipes": recipe_ids, "tags": tags}
+        logger.info({"message": "Bulk-tagging recipes", "count": len(recipe_ids)})
         return self._handle_request(
             "POST", "/api/recipes/bulk-actions/tag", json=payload
         )
@@ -565,11 +583,12 @@ class RecipeMixin:
         if not settings:
             raise ValueError("At least one setting must be provided")
 
-        payload = {"recipes": recipe_slugs, "settings": settings}
+        recipe_ids = self._resolve_recipe_ids(recipe_slugs)
+        payload = {"recipes": recipe_ids, "settings": settings}
         logger.info(
             {
                 "message": "Bulk-updating recipe settings",
-                "count": len(recipe_slugs),
+                "count": len(recipe_ids),
                 "fields": list(settings),
             }
         )
@@ -582,8 +601,9 @@ class RecipeMixin:
         if not recipe_slugs:
             raise ValueError("recipe_slugs cannot be empty")
 
-        payload = {"recipes": recipe_slugs}
-        logger.info({"message": "Bulk-deleting recipes", "count": len(recipe_slugs)})
+        recipe_ids = self._resolve_recipe_ids(recipe_slugs)
+        payload = {"recipes": recipe_ids}
+        logger.info({"message": "Bulk-deleting recipes", "count": len(recipe_ids)})
         return self._handle_request(
             "POST", "/api/recipes/bulk-actions/delete", json=payload
         )
