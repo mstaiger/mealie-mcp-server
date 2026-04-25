@@ -77,6 +77,30 @@ class TagsMixin:
         logger.info({"message": "Creating tag", "name": name})
         return self._handle_request("POST", "/api/organizers/tags", json=payload)
 
+    def find_tag_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Look up a tag by exact name. Returns None if absent.
+
+        Avoids /api/organizers/tags/slug/{slug}, which returns 500 instead
+        of 404 when the tag does not exist (Mealie server bug).
+        """
+        if not name:
+            raise ValueError("Tag name cannot be empty")
+
+        result = self._handle_request(
+            "GET", "/api/organizers/tags", params={"search": name, "perPage": 100}
+        )
+        for item in (result or {}).get("items", []):
+            if item.get("name") == name:
+                return item
+        return None
+
+    def get_or_create_tag(self, name: str) -> Dict[str, Any]:
+        """Return an existing tag with the given name, or create one."""
+        existing = self.find_tag_by_name(name)
+        if existing is not None:
+            return existing
+        return self.create_tag(name)
+
     def get_tag(self, tag_id: str) -> Dict[str, Any]:
         """Get a specific tag by ID.
 

@@ -72,6 +72,29 @@ def register_categories_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
+    def get_or_create_category(name: str) -> Dict[str, Any]:
+        """Find a category by exact name, or create it if absent.
+
+        Idempotent: safe to call repeatedly. Uses the list+search endpoint
+        rather than /categories/slug/{slug}, which returns 500 (not 404)
+        on miss.
+
+        Args:
+            name: Name of the category (e.g., "Breakfast", "Dessert")
+
+        Returns:
+            Dict[str, Any]: The existing or newly-created category
+        """
+        try:
+            logger.info({"message": "Get-or-create category", "name": name})
+            return mealie.get_or_create_category(name)
+        except Exception as e:
+            error_msg = f"Error get-or-create category '{name}': {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
+            raise ToolError(error_msg)
+
+    @mcp.tool()
     def get_category(category_id: str) -> Dict[str, Any]:
         """Get a specific category by ID.
 

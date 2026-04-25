@@ -77,6 +77,32 @@ class CategoriesMixin:
         logger.info({"message": "Creating category", "name": name})
         return self._handle_request("POST", "/api/organizers/categories", json=payload)
 
+    def find_category_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Look up a category by exact name. Returns None if absent.
+
+        Avoids /api/organizers/categories/slug/{slug}, which returns 500
+        instead of 404 when the category does not exist (Mealie server bug).
+        """
+        if not name:
+            raise ValueError("Category name cannot be empty")
+
+        result = self._handle_request(
+            "GET",
+            "/api/organizers/categories",
+            params={"search": name, "perPage": 100},
+        )
+        for item in (result or {}).get("items", []):
+            if item.get("name") == name:
+                return item
+        return None
+
+    def get_or_create_category(self, name: str) -> Dict[str, Any]:
+        """Return an existing category with the given name, or create one."""
+        existing = self.find_category_by_name(name)
+        if existing is not None:
+            return existing
+        return self.create_category(name)
+
     def get_category(self, category_id: str) -> Dict[str, Any]:
         """Get a specific category by ID.
 
