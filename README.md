@@ -50,7 +50,7 @@ fastmcp install src/server.py \
   --env-var MEALIE_API_KEY=your-mealie-api-key
 ```
 
-#### Option 2: Manual Configuration
+#### Option 2: Manual Configuration (stdio)
 
 Add the server to your `claude_desktop_config.json`:
 
@@ -63,7 +63,8 @@ Add the server to your `claude_desktop_config.json`:
         "--directory",
         "/path/to/repo/src",
         "run",
-        "server.py"
+        "server.py",
+        "--stdio"
       ],
       "env": {
         "MEALIE_BASE_URL": "https://your-mealie-instance.com",
@@ -75,6 +76,45 @@ Add the server to your `claude_desktop_config.json`:
 ```
 
 Restart Claude Desktop to load the server.
+
+#### Option 3: Long-lived HTTP/SSE daemon
+
+The server defaults to HTTP/SSE bound to `127.0.0.1:8765`, which lets it run
+as a single long-lived process (e.g. via `launchd` or `systemd`) and be
+proxied into Claude Desktop with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+
+```bash
+uv --directory /path/to/repo/src run server.py
+```
+
+Then point Claude Desktop at the daemon:
+
+```json
+{
+  "mcpServers": {
+    "mealie-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:8765/sse"]
+    }
+  }
+}
+```
+
+### Configuration
+
+All settings are read from environment variables (or `.env`):
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `MEALIE_BASE_URL` | — | Required. Mealie instance URL. |
+| `MEALIE_API_KEY` | — | Required. Mealie API key. |
+| `MEALIE_MCP_TRANSPORT` | `sse` | One of `sse`, `streamable-http`, `stdio`. CLI `--stdio` and `--transport` override this. |
+| `MEALIE_MCP_HOST` | `127.0.0.1` | Bind host. Non-loopback hosts require `MEALIE_MCP_ALLOW_REMOTE_BIND=1`. |
+| `MEALIE_MCP_PORT` | `8765` | Bind port (1..65535). |
+| `MEALIE_MCP_ALLOW_REMOTE_BIND` | _unset_ | Set to `1` to permit non-loopback bind. **You must put a trusted auth/proxy in front of the server**: it exposes the full authority of `MEALIE_API_KEY` and local-file upload tools to anything that can reach it. |
+| `MEALIE_MCP_UPLOAD_DIR` | _unset_ | Allowlisted directory for the file-path upload tools (`upload_recipe_image_file`, `upload_recipe_asset_file`, `import_recipe_from_zip_file`, `import_recipe_from_image_files`, `upload_profile_image`). When unset, those tools are disabled. Symlinks that resolve outside the directory are rejected. |
+| `MEALIE_MCP_UPLOAD_MAX_BYTES` | `52428800` (50 MiB) | Per-file size cap for the upload sandbox. |
+| `LOG_LEVEL` | `INFO` | Standard Python logging level. Sensitive fields (passwords, tokens, API keys) are redacted before logging. |
 
 ## 📖 Usage Examples
 
