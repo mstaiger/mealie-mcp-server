@@ -7,6 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from mealie import MealieFetcher
+from utils import UploadPathError, read_upload_file
 
 logger = logging.getLogger("mealie-mcp")
 
@@ -224,15 +225,15 @@ def register_user_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             user_id: Target user's UUID (defaults to current user).
         """
         try:
-            with open(image_path, "rb") as f:
-                image_data = f.read()
-            filename = os.path.basename(image_path)
+            image_data, filename = read_upload_file(image_path)
             logger.info(
                 {"message": "Uploading profile image", "path": image_path, "user_id": user_id}
             )
             return mealie.upload_profile_image(
                 image_data=image_data, filename=filename, user_id=user_id
             )
+        except UploadPathError as e:
+            raise ToolError(str(e))
         except Exception as e:
             error_msg = f"Error uploading profile image '{image_path}': {str(e)}"
             logger.error({"message": error_msg})
