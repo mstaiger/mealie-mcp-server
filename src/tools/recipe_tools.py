@@ -8,6 +8,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from mealie import MealieFetcher
 from models.recipe import Recipe, RecipeIngredient, RecipeInstruction
+from utils import UploadPathError, read_upload_file
 
 logger = logging.getLogger("mealie-mcp")
 
@@ -400,18 +401,11 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             Dict[str, Any]: Confirmation that the image was uploaded.
         """
         try:
-            import os
-
             logger.info({"message": "Uploading recipe image", "slug": slug, "path": image_path})
-
-            if not os.path.exists(image_path):
-                raise ValueError(f"Image file not found: {image_path}")
-
-            with open(image_path, "rb") as f:
-                image_data = f.read()
-
-            filename = os.path.basename(image_path)
+            image_data, filename = read_upload_file(image_path)
             return mealie.upload_recipe_image(slug, image_data, filename)
+        except UploadPathError as e:
+            raise ToolError(str(e))
         except Exception as e:
             error_msg = f"Error uploading recipe image '{slug}': {str(e)}"
             logger.error({"message": error_msg})
@@ -430,18 +424,11 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             Dict[str, Any]: Details of the uploaded asset.
         """
         try:
-            import os
-
             logger.info({"message": "Uploading recipe asset", "slug": slug, "path": asset_path})
-
-            if not os.path.exists(asset_path):
-                raise ValueError(f"Asset file not found: {asset_path}")
-
-            with open(asset_path, "rb") as f:
-                asset_data = f.read()
-
-            filename = os.path.basename(asset_path)
+            asset_data, filename = read_upload_file(asset_path)
             return mealie.upload_recipe_asset(slug, asset_data, filename)
+        except UploadPathError as e:
+            raise ToolError(str(e))
         except Exception as e:
             error_msg = f"Error uploading recipe asset '{slug}': {str(e)}"
             logger.error({"message": error_msg})
@@ -760,13 +747,13 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             archive_path: Filesystem path to a Mealie-exported recipe ZIP.
         """
         try:
-            with open(archive_path, "rb") as f:
-                archive_data = f.read()
-            filename = os.path.basename(archive_path)
+            archive_data, filename = read_upload_file(archive_path)
             logger.info(
                 {"message": "Importing recipe from ZIP", "path": archive_path, "size": len(archive_data)}
             )
             return mealie.import_recipe_from_zip(archive_data=archive_data, filename=filename)
+        except UploadPathError as e:
+            raise ToolError(str(e))
         except Exception as e:
             error_msg = f"Error importing recipe from ZIP '{archive_path}': {str(e)}"
             logger.error({"message": error_msg})
@@ -789,8 +776,8 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
         try:
             images = []
             for path in image_paths:
-                with open(path, "rb") as f:
-                    images.append({"filename": os.path.basename(path), "data": f.read()})
+                data, filename = read_upload_file(path)
+                images.append({"filename": filename, "data": data})
             logger.info(
                 {
                     "message": "Importing recipe from image(s)",
@@ -801,6 +788,8 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             return mealie.import_recipe_from_image(
                 images=images, translate_language=translate_language
             )
+        except UploadPathError as e:
+            raise ToolError(str(e))
         except Exception as e:
             error_msg = f"Error importing recipe from image(s): {str(e)}"
             logger.error({"message": error_msg})

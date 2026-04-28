@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import traceback
 from typing import Any, Dict
 
@@ -7,6 +8,76 @@ import httpx
 from httpx import ConnectError, HTTPStatusError, ReadTimeout
 
 logger = logging.getLogger("mealie-mcp")
+
+# Keys whose values must never appear in logs. Matched case-insensitively as a
+# substring of the key name, so e.g. "currentPassword" and "password_confirm"
+# are both caught by "password".
+_SENSITIVE_KEY_FRAGMENTS = (
+    "password",
+    "token",
+    "secret",
+    "apikey",
+    "api_key",
+    "authorization",
+)
+_REDACTED = "***REDACTED***"
+
+# Endpoints whose response bodies contain freshly minted credentials; we redact
+# their full bodies rather than trying to inspect arbitrary fields.
+_SENSITIVE_RESPONSE_PATHS = (
+    "/api/users/api-tokens",
+    "/api/users/password",
+    "/api/users/forgot-password",
+    "/api/users/reset-password",
+    "/api/auth/token",
+    "/api/auth/refresh",
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(fragment in lowered for fragment in _SENSITIVE_KEY_FRAGMENTS)
+
+
+def _redact(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: _REDACTED if _is_sensitive_key(k) else _redact(v)
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact(v) for v in value]
+    return value
+
+
+def _is_sensitive_url(url: str) -> bool:
+    return any(path in url for path in _SENSITIVE_RESPONSE_PATHS)
+
+
+_BYTES_KV_RE = re.compile(rb'"([^"]+)"\s*:\s*"[^"]*"')
+
+
+def _redact_request_bytes(content: bytes | None) -> str:
+    """Best-effort redaction of a captured request body for debug logging.
+
+    We try JSON first (the common case for this client). If that fails — e.g.
+    multipart uploads — we fall back to a regex pass that masks any string
+    value whose key matches a sensitive fragment, without trying to fully
+    parse the multipart envelope.
+    """
+    if not content:
+        return ""
+    try:
+        parsed = json.loads(content)
+    except (ValueError, TypeError):
+        def _mask(match: re.Match[bytes]) -> bytes:
+            key = match.group(1).decode("utf-8", errors="replace")
+            if _is_sensitive_key(key):
+                return f'"{key}":"{_REDACTED}"'.encode()
+            return match.group(0)
+
+        return _BYTES_KV_RE.sub(_mask, content).decode("utf-8", errors="replace")
+    return json.dumps(_redact(parsed))
 
 
 class MealieApiError(Exception):
@@ -40,10 +111,27 @@ class MealieClient:
             )
             # Test connection
             logger.debug({"message": "Testing connection to Mealie API"})
-            self._client.get("/api/app/about")
+            response = self._client.get("/api/app/about")
+            response.raise_for_status()
             logger.info({"message": "Successfully connected to Mealie API"})
         except ConnectError as e:
             error_msg = f"Failed to connect to Mealie API at {base_url}: {str(e)}"
+            logger.error({"message": error_msg})
+            logger.debug(
+                {"message": "Error traceback", "traceback": traceback.format_exc()}
+            )
+            raise ConnectionError(error_msg) from e
+        except HTTPStatusError as e:
+            status_code = e.response.status_code
+            hint = (
+                "verify MEALIE_API_KEY is valid"
+                if status_code in (401, 403)
+                else "verify MEALIE_BASE_URL points at a Mealie instance"
+            )
+            error_msg = (
+                f"Mealie API at {base_url} returned HTTP {status_code} during "
+                f"startup connectivity check; {hint}."
+            )
             logger.error({"message": error_msg})
             logger.debug(
                 {"message": "Error traceback", "traceback": traceback.format_exc()}
@@ -71,17 +159,19 @@ class MealieClient:
                     "message": "Making API request",
                     "method": method,
                     "url": url,
-                    "body": kwargs.get("json"),
+                    "body": _redact(kwargs.get("json")),
                     "has_files": "files" in kwargs,
                 }
             )
 
             if "params" in kwargs:
                 logger.debug(
-                    {"message": "Request parameters", "params": kwargs["params"]}
+                    {"message": "Request parameters", "params": _redact(kwargs["params"])}
                 )
             if "json" in kwargs:
-                logger.debug({"message": "Request payload", "payload": kwargs["json"]})
+                logger.debug(
+                    {"message": "Request payload", "payload": _redact(kwargs["json"])}
+                )
             if "files" in kwargs:
                 logger.debug({"message": "Request has file upload"})
 
@@ -115,20 +205,28 @@ class MealieClient:
                     )
                     return {"success": True, "message": "Operation completed successfully"}
 
-                logger.debug({"message": "Response content", "data": response_data})
+                if _is_sensitive_url(url):
+                    logger.debug(
+                        {"message": "Response content", "data": _REDACTED, "url": url}
+                    )
+                else:
+                    logger.debug(
+                        {"message": "Response content", "data": _redact(response_data)}
+                    )
                 return response_data
             except json.JSONDecodeError:
                 # If we can't decode JSON but got a successful response, treat as success
+                logged_text = _REDACTED if _is_sensitive_url(url) else response.text
                 if response.status_code >= 200 and response.status_code < 300:
                     logger.debug(
-                        {"message": "Response content (non-JSON but successful)", "content": response.text}
+                        {"message": "Response content (non-JSON but successful)", "content": logged_text}
                     )
                     if not response.text or response.text.strip() == "":
                         return {"success": True, "message": "Operation completed successfully"}
                     return response.text
                 else:
                     logger.debug(
-                        {"message": "Response content (non-JSON)", "content": response.text}
+                        {"message": "Response content (non-JSON)", "content": logged_text}
                     )
                     return response.text
 
@@ -153,7 +251,10 @@ class MealieClient:
                 }
             )
             logger.debug(
-                {"message": "Failed Request body", "content": e.request.content}
+                {
+                    "message": "Failed Request body",
+                    "content": _redact_request_bytes(e.request.content),
+                }
             )
             raise MealieApiError(status_code, error_msg, e.response.text) from e
 
