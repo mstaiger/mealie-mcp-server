@@ -95,6 +95,22 @@ def _validate_host(host: str) -> str:
     )
 
 
+def _parse_timeout(raw: str | None) -> float:
+    if raw is None or raw == "":
+        return 30.0
+    try:
+        timeout = float(raw)
+    except ValueError as e:
+        raise ValueError(
+            f"MEALIE_TIMEOUT must be a positive number of seconds, got {raw!r}"
+        ) from e
+    if timeout <= 0:
+        raise ValueError(
+            f"MEALIE_TIMEOUT must be a positive number of seconds, got {timeout}"
+        )
+    return timeout
+
+
 def _resolve_transport(cli_stdio: bool, cli_transport: str | None) -> str:
     """Resolve which transport to run.
 
@@ -128,8 +144,10 @@ def _build_server() -> FastMCP:
             "MEALIE_BASE_URL and MEALIE_API_KEY must be set in environment variables."
         )
 
+    timeout = _parse_timeout(os.getenv("MEALIE_TIMEOUT"))
+
     try:
-        mealie = MealieFetcher(base_url=base_url, api_key=api_key)
+        mealie = MealieFetcher(base_url=base_url, api_key=api_key, timeout=timeout)
     except Exception as e:
         logger.error({"message": "Failed to initialize Mealie client", "error": str(e)})
         logger.debug({"message": "Error traceback", "traceback": traceback.format_exc()})
