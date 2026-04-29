@@ -34,10 +34,21 @@ if not MEALIE_BASE_URL or not MEALIE_API_KEY:
         "MEALIE_BASE_URL and MEALIE_API_KEY must be set in environment variables."
     )
 
+MEALIE_TIMEOUT_RAW = os.getenv("MEALIE_TIMEOUT", "30")
+try:
+    MEALIE_TIMEOUT = float(MEALIE_TIMEOUT_RAW)
+    if MEALIE_TIMEOUT <= 0:
+        raise ValueError
+except ValueError:
+    raise ValueError(
+        f"MEALIE_TIMEOUT must be a positive number of seconds (got '{MEALIE_TIMEOUT_RAW}')."
+    )
+
 try:
     mealie = MealieFetcher(
         base_url=MEALIE_BASE_URL,
         api_key=MEALIE_API_KEY,
+        timeout=MEALIE_TIMEOUT,
     )
 except Exception as e:
     logger.error({"message": "Failed to initialize Mealie client", "error": str(e)})
