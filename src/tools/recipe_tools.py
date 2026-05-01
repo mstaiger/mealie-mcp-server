@@ -372,12 +372,17 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
     def set_recipe_image_from_url(slug: str, image_url: str) -> Dict[str, Any]:
         """Set a recipe's image by scraping it from a URL.
 
+        Returns both a confirmation and an ``image_url`` field containing the
+        viewable URL on the Mealie server.  Use this URL to visually verify
+        the correct image was applied.
+
         Args:
             slug: The unique text identifier for the recipe.
             image_url: URL of the image to scrape and use as the recipe image.
 
         Returns:
-            Dict[str, Any]: Confirmation that the image was set.
+            Dict[str, Any]: Confirmation that the image was set, plus
+                ``image_url`` pointing to the uploaded image on Mealie.
         """
         try:
             logger.info({"message": "Setting recipe image from URL", "slug": slug, "url": image_url})
@@ -392,12 +397,21 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
     def upload_recipe_image_file(slug: str, image_path: str) -> Dict[str, Any]:
         """Upload an image file for a recipe.
 
+        Returns both a confirmation and an ``image_url`` field containing the
+        viewable URL on the Mealie server.  Use this URL to visually verify
+        the correct image was applied — especially important when the source
+        image was AI-generated alongside other images in the same session.
+
+        TIP: When generating images with AI models, generate one image per
+        invocation to avoid ambiguity from multi-image regeneration.
+
         Args:
             slug: The unique text identifier for the recipe.
             image_path: Local file path to the image to upload.
 
         Returns:
-            Dict[str, Any]: Confirmation that the image was uploaded.
+            Dict[str, Any]: Confirmation that the image was uploaded, plus
+                ``image_url`` pointing to the uploaded image on Mealie.
         """
         try:
             import os

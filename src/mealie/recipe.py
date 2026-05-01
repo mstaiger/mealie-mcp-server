@@ -212,6 +212,21 @@ class RecipeMixin:
         logger.info({"message": "Updating recipe last made", "slug": slug})
         return self._handle_request("PATCH", f"/api/recipes/{slug}/last-made", json=payload)
 
+    def _get_recipe_image_url(self, slug: str) -> Optional[str]:
+        """Look up a recipe's viewable image URL by slug.
+
+        Returns the full URL or None if the recipe has no image or lookup fails.
+        """
+        try:
+            recipe = self.get_recipe(slug)
+            recipe_id = recipe.get("id")
+            if recipe_id:
+                base = str(self._client.base_url).rstrip("/")
+                return f"{base}/api/media/recipes/{recipe_id}/images/original.webp"
+        except Exception:
+            logger.debug({"message": "Could not resolve image URL", "slug": slug})
+        return None
+
     def scrape_recipe_image_from_url(self, slug: str, image_url: str) -> Dict[str, Any]:
         """Scrape and set a recipe's image from a URL (JSON payload)
 
@@ -230,7 +245,14 @@ class RecipeMixin:
         payload = {"url": image_url}
 
         logger.info({"message": "Scraping recipe image from URL", "slug": slug, "url": image_url})
-        return self._handle_request("POST", f"/api/recipes/{slug}/image", json=payload)
+        result = self._handle_request("POST", f"/api/recipes/{slug}/image", json=payload)
+
+        if isinstance(result, dict):
+            image_view_url = self._get_recipe_image_url(slug)
+            if image_view_url:
+                result["image_url"] = image_view_url
+
+        return result
 
     def upload_recipe_image(self, slug: str, image_data: bytes, filename: str) -> Dict[str, Any]:
         """Upload a recipe image file (multipart upload)
@@ -268,9 +290,16 @@ class RecipeMixin:
                 "extension": extension,
             }
         )
-        return self._handle_request(
+        result = self._handle_request(
             "PUT", f"/api/recipes/{slug}/image", files=files, data=data
         )
+
+        if isinstance(result, dict):
+            image_view_url = self._get_recipe_image_url(slug)
+            if image_view_url:
+                result["image_url"] = image_view_url
+
+        return result
 
     def upload_recipe_asset(self, slug: str, asset_data: bytes, filename: str) -> Dict[str, Any]:
         """Upload a recipe asset file (multipart upload)
