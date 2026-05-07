@@ -21,13 +21,21 @@ class MealieApiError(Exception):
 
 class MealieClient:
 
-    def __init__(self, base_url: str, api_key: str):
+    def __init__(self, base_url: str, api_key: str, timeout: float = 30.0):
         if not base_url:
             raise ValueError("Base URL cannot be empty")
         if not api_key:
             raise ValueError("API key cannot be empty")
+        if timeout is not None and timeout <= 0:
+            raise ValueError("timeout must be positive")
 
-        logger.debug({"message": "Initializing MealieClient", "base_url": base_url})
+        logger.debug(
+            {
+                "message": "Initializing MealieClient",
+                "base_url": base_url,
+                "timeout": timeout,
+            }
+        )
         try:
             self._client = httpx.Client(
                 base_url=base_url,
@@ -36,7 +44,7 @@ class MealieClient:
                     # Don't set Content-Type here - let httpx set it per request
                     # This allows multipart/form-data uploads to work correctly
                 },
-                timeout=30.0,  # Set a reasonable timeout for requests
+                timeout=timeout,
             )
             # Test connection
             logger.debug({"message": "Testing connection to Mealie API"})
