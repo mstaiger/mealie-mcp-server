@@ -532,8 +532,11 @@ class RecipeMixin:
 
     def bulk_categorize_recipes(
         self, recipe_slugs: List[str], categories: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Attach categories to many recipes at once.
+
+        Tries the dedicated bulk-actions/categorize endpoint first; falls back
+        to PATCH /api/recipes if the endpoint is unavailable.
 
         Args:
             recipe_slugs: List of recipe slugs to update
@@ -549,14 +552,33 @@ class RecipeMixin:
         logger.info(
             {"message": "Bulk-categorizing recipes", "count": len(recipe_ids)}
         )
-        return self._handle_request(
-            "POST", "/api/recipes/bulk-actions/categorize", json=payload
-        )
+        try:
+            result = self._handle_request(
+                "POST", "/api/recipes/bulk-actions/categorize", json=payload
+            )
+            if isinstance(result, list):
+                return result
+            return [result] if isinstance(result, dict) else []
+        except Exception as e:
+            logger.info(
+                {
+                    "message": "bulk-actions/categorize endpoint failed, falling back to PATCH",
+                    "error": str(e),
+                }
+            )
+            patches = [
+                {"id": rid, "recipeCategory": categories} for rid in recipe_ids
+            ]
+            return self.patch_recipes_batch(patches)
 
     def bulk_tag_recipes(
         self, recipe_slugs: List[str], tags: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Attach tags to many recipes at once.
+
+        Tries the dedicated bulk-actions/tag endpoint first; falls back to
+        PATCH /api/recipes if the endpoint is unavailable (removed in some
+        Mealie versions).
 
         Args:
             recipe_slugs: List of recipe slugs to update
@@ -570,9 +592,22 @@ class RecipeMixin:
         recipe_ids = self._resolve_recipe_ids(recipe_slugs)
         payload = {"recipes": recipe_ids, "tags": tags}
         logger.info({"message": "Bulk-tagging recipes", "count": len(recipe_ids)})
-        return self._handle_request(
-            "POST", "/api/recipes/bulk-actions/tag", json=payload
-        )
+        try:
+            result = self._handle_request(
+                "POST", "/api/recipes/bulk-actions/tag", json=payload
+            )
+            if isinstance(result, list):
+                return result
+            return [result] if isinstance(result, dict) else []
+        except Exception as e:
+            logger.info(
+                {
+                    "message": "bulk-actions/tag endpoint failed, falling back to PATCH",
+                    "error": str(e),
+                }
+            )
+            patches = [{"id": rid, "tags": tags} for rid in recipe_ids]
+            return self.patch_recipes_batch(patches)
 
     def bulk_update_recipe_settings(
         self,
@@ -637,7 +672,9 @@ class RecipeMixin:
             "POST", "/api/recipes/bulk-actions/delete", json=payload
         )
 
-    def update_recipes_batch(self, recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def update_recipes_batch(
+        self, recipes: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Full-replace many recipes in a single call (PUT /api/recipes).
 
         Args:
@@ -650,9 +687,14 @@ class RecipeMixin:
             raise ValueError("recipes cannot be empty")
 
         logger.info({"message": "Batch-replacing recipes", "count": len(recipes)})
-        return self._handle_request("PUT", "/api/recipes", json=recipes)
+        result = self._handle_request("PUT", "/api/recipes", json=recipes)
+        if isinstance(result, list):
+            return result
+        return [result] if isinstance(result, dict) else []
 
-    def patch_recipes_batch(self, recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def patch_recipes_batch(
+        self, recipes: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Partial-update many recipes in a single call (PATCH /api/recipes).
 
         Each entry must carry enough identifying info (slug and/or id) plus
@@ -662,4 +704,7 @@ class RecipeMixin:
             raise ValueError("recipes cannot be empty")
 
         logger.info({"message": "Batch-patching recipes", "count": len(recipes)})
-        return self._handle_request("PATCH", "/api/recipes", json=recipes)
+        result = self._handle_request("PATCH", "/api/recipes", json=recipes)
+        if isinstance(result, list):
+            return result
+        return [result] if isinstance(result, dict) else []

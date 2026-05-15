@@ -825,7 +825,7 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
     def bulk_categorize_recipes(
         recipe_slugs: List[str],
         categories: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Attach categories to many recipes in one call.
 
         Args:
@@ -846,7 +846,7 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
     def bulk_tag_recipes(
         recipe_slugs: List[str],
         tags: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+    ) -> List[Dict[str, Any]]:
         """Attach tags to many recipes in one call.
 
         Args:
@@ -913,7 +913,7 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
-    def update_recipes_batch(recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def update_recipes_batch(recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Full-replace many recipes in a single call (PUT /api/recipes).
 
         Each entry must be a complete recipe body; missing fields will be
@@ -929,7 +929,7 @@ def register_recipe_tools(mcp: FastMCP, mealie: MealieFetcher) -> None:
             raise ToolError(error_msg)
 
     @mcp.tool()
-    def patch_recipes_batch(recipes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def patch_recipes_batch(recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Partial-update many recipes in a single call (PATCH /api/recipes).
 
         Each entry must carry enough identifying info (slug and/or id) plus
