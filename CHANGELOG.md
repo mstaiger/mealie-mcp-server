@@ -2,6 +2,30 @@
 
 All notable changes to the Mealie MCP Server.
 
+## [Unreleased] - 2026-04-28
+
+### ✨ New Features
+
+- **HTTP/SSE transport (default)**: server now binds HTTP/SSE on
+  `127.0.0.1:8765` so it can run as a long-lived daemon (launchd/systemd)
+  and be proxied into Claude Desktop via `mcp-remote`. Stdio is preserved
+  behind `--stdio` / `MEALIE_MCP_TRANSPORT=stdio`.
+- New env vars: `MEALIE_MCP_TRANSPORT`, `MEALIE_MCP_HOST`, `MEALIE_MCP_PORT`,
+  `MEALIE_MCP_ALLOW_REMOTE_BIND`, `MEALIE_MCP_UPLOAD_DIR`,
+  `MEALIE_MCP_UPLOAD_MAX_BYTES`.
+
+### 🔒 Security Hardening (#2)
+
+- Refuse non-loopback bind unless `MEALIE_MCP_ALLOW_REMOTE_BIND=1`.
+- Validate `MEALIE_MCP_PORT` (1..65535) with a clear configuration error.
+- Startup `/api/app/about` probe now calls `raise_for_status()` so a bad
+  base URL or API key fails fast with an actionable message.
+- Redact passwords, tokens, and API keys from request/response/failed
+  request debug logs; redact full bodies for token and password endpoints.
+- Sandbox the five filesystem-path upload tools to `MEALIE_MCP_UPLOAD_DIR`,
+  resolve symlinks before the prefix check, and enforce a per-file size
+  cap (default 50 MiB).
+
 ## [Unreleased] - 2025-01-05
 
 ### 🎉 Major Feature Additions
