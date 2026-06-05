@@ -5,14 +5,24 @@ import os
 import sys
 import traceback
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - optional convenience dependency
+    # ``python-dotenv`` only loads a local ``.env`` file for convenience. It is
+    # optional: launchers such as ``uv run --env-file ...`` or a real process
+    # manager already inject the environment before this module is imported, so
+    # a missing dependency must not take the whole server down.
+    def load_dotenv(*args, **kwargs) -> bool:  # type: ignore[misc]
+        return False
+
+
 from mcp.server.fastmcp import FastMCP
 
 from mealie import MealieFetcher
 from prompts import register_prompts
 from tools import register_all_tools
 
-# Load environment variables first
+# Load environment variables first (no-op if python-dotenv is unavailable).
 load_dotenv()
 
 # Get log level from environment variable with INFO as default
