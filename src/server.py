@@ -189,6 +189,27 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _pin_uvicorn_logging_to_stderr() -> None:
+    """Route uvicorn's log streams to stderr.
+
+    FastMCP runs the SSE / streamable-http transports on uvicorn, which
+    configures its own logging via ``dictConfig`` when the server starts. By
+    default uvicorn sends its ``access`` logger to **stdout** (and ``default``
+    to stderr), so request lines like ``INFO: ... "GET /sse" 200`` land on
+    stdout and bypass our root stderr handler. We mutate the default config in
+    place — it is the same object uvicorn falls back to when no ``log_config``
+    is passed (which is the case here) — so both handlers write to stderr and
+    stdout stays clean.
+    """
+    try:
+        from uvicorn.config import LOGGING_CONFIG
+    except Exception:  # pragma: no cover - uvicorn absent (e.g. stdio-only)
+        return
+    for handler in LOGGING_CONFIG.get("handlers", {}).values():
+        if handler.get("stream") == "ext://sys.stdout":
+            handler["stream"] = "ext://sys.stderr"
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     transport = _resolve_transport(cli_stdio=args.stdio, cli_transport=args.transport)
@@ -204,6 +225,7 @@ def main(argv: list[str] | None = None) -> None:
             logger.info({"message": "Starting Mealie MCP Server", "transport": "stdio"})
             mcp.run(transport="stdio")
         else:
+            _pin_uvicorn_logging_to_stderr()
             logger.info(
                 {
                     "message": "Starting Mealie MCP Server",
