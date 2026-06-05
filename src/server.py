@@ -30,11 +30,13 @@ log_level_name = os.getenv("LOG_LEVEL", "INFO")
 log_level = getattr(logging, log_level_name.upper(), logging.INFO)
 log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mealie_mcp_server.log")
 
-# Configure logging
+# Configure logging. The stream handler is pinned to stderr: stdout is
+# reserved for the JSON-RPC protocol on the stdio transport, so any log line
+# written there would corrupt the message stream.
 logging.basicConfig(
     level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler(log_path)],
+    handlers=[logging.StreamHandler(sys.stderr), logging.FileHandler(log_path)],
 )
 logger = logging.getLogger("mealie-mcp")
 
